@@ -5,6 +5,10 @@ import
     PlayerManager
 define
     % ...
+    SimpleFun
 in
     % ...
+    fun{SimpleFun}
+        5
+    end
 end
