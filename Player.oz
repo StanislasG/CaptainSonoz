@@ -9,15 +9,28 @@ define
     TreatStream
 
     Function % for compiling
+
+    InitPosition
 in
 
     proc{Function Var}
         {System.show 3}
     end
 
+
+    %inspirated by GUI.oz line 105
+    fun{InitPosition ID Position}
+        Id Color Name X Y 
+    in
+        %todo find a way to create store (Id Color Name X Y)
+        ID = id(id:Id color:Color name:Name)
+        Position pt(x:X y:Y)
+    end
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
     %We can decide how may arguments TreatStream has
+    %An example in GUI.oz
 
     fun{StartPlayer Color ID}
         Stream
@@ -29,10 +42,11 @@ in
         end
         Port
     end
+
     proc{TreatStream Stream}
         case Stream
 		of nil then skip
-        []initPosition(?ID ?Position)|T then Var in
+        []initPosition(?ID ?Position)|T then
             %<id> ::= null | id(id:<idNum> color:<color>) name:Name)
                 %<idNum> ::= 1 | 2 | ... | Input.nbPlayer
                 %<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
@@ -40,7 +54,9 @@ in
             %<position> ::= pt(x:<row> y:<column>)
                 %<row> ::= 1 | 2 | ... | Input.nRow
                 %<column> ::= 1 | 2 | ... | Input.nColumn
-            {Function Var}
+
+            %todo case ID and Positon null
+            {InitPosition ID Position}
             {TreatStream T}
         []move(?ID ?Position ?Direction)|T then Var in
             %<direction> ::= <carddirection> | surface

@@ -52,9 +52,12 @@ in
     end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%    
+    %1. Create the port for the GUI and launch its interface
     GuiPort={PortWindow} 
     {Send GuiPort buildWindow}
     
+    %2. Create the port for every player using the PlayerManager and assign a unique id between 1 and
+    %    Input.nbPlayer (< idnum >). The ids are given in the order they are defined in the input file
     Players = {CreatePlayers}
     {InitPlayers}
 
@@ -62,9 +65,8 @@ in
     
     {System.show 'it worked well until here'}
 
-    %1. Create the port for the GUI and launch its interface
-    %2. Create the port for every player using the PlayerManager and assign a unique id between 1 and
-    %    Input.nbPlayer (< idnum >). The ids are given in the order they are dened in the input le
+    
+    
     %3. Ask every player to set up (choose its initial point, they all are at the surface at this time)
     %4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as
     %   specied by the input le)
