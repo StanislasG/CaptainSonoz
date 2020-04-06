@@ -1,7 +1,6 @@
 functor
 import
-	%Player1
-	%Player2
+	%import players
 	PlayerBasicAI
 export
 	playerGenerator:PlayerGenerator
@@ -10,8 +9,10 @@ define
 in
 	fun{PlayerGenerator Kind Color ID}
 		case Kind
-		of player2 then {PlayerBasicAI.portPlayer Color ID}
+		of player2 then {PlayerBasicAI.portPlayer Color ID} 
 		[] player1 then {PlayerBasicAI.portPlayer Color ID}
 		end
 	end
 end
+
+%nothing to do except import the right players

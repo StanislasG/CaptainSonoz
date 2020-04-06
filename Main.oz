@@ -12,7 +12,8 @@ define
     Players
     InitPlayers
 in
-    %internet
+
+%internet
     %return a list of ports
     fun{CreatePlayers}
         fun{CreatePlayerList ID NbPlayer Players Colors}
@@ -20,12 +21,14 @@ in
                 case Players#Colors
                 of (H1|T1)#(H2|T2) then
                     {PlayerManager.playerGenerator H1 H2 ID}|{CreatePlayerList ID+1 NbPlayer T1 T2}
-                else raise wrongPlayerException('is not in form as (H1|T1)#(H2|T2)') end
+                else 
+                    raise wrongPlayerException('is not in form as (H1|T1)#(H2|T2)') end
                 end
             else nil %all players are created
             end
         end
     in
+        % (int) Input.nbPlayer, (tab) Input.players, (tab) Input.colors
         {CreatePlayerList 1 Input.nbPlayer Input.players Input.colors}
     end
 
@@ -58,4 +61,11 @@ in
     %a faire choisir la position de depart
     
     {System.show 'it worked well until here'}
+
+    %1. Create the port for the GUI and launch its interface
+    %2. Create the port for every player using the PlayerManager and assign a unique id between 1 and
+    %    Input.nbPlayer (< idnum >). The ids are given in the order they are dened in the input le
+    %3. Ask every player to set up (choose its initial point, they all are at the surface at this time)
+    %4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as
+    %   specied by the input le)
 end

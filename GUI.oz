@@ -24,7 +24,7 @@ define
 	RemoveMine
 	DrawPath
 
-	BuildWindow
+	BuildWindow %Create and launch the window (no player on it)
 
 	Label
 	Squares
@@ -254,6 +254,7 @@ in
 	proc{TreatStream Stream Grid State}
 		case Stream
 		of nil then skip
+		%if ID is null the message must be ignored
 		[] buildWindow|T then NewGrid in 
 			{TreatStream T NewGrid State}
 		[] initPlayer(ID Position)|T then NewState in
@@ -272,11 +273,11 @@ in
 			{TreatStream T Grid {StateModification Grid ID State RemovePath}}
 		[] removePlayer(ID)|T then
 			{TreatStream T Grid {RemovePlayer Grid ID State}}
-		[] explosion(ID Position)|T then
+		[] explosion(ID Position)|T then 	%not mandatory
 			{TreatStream T Grid State}
-		[] drone(ID Drone)|T then
+		[] drone(ID Drone)|T then			%not mandatory
 			{TreatStream T Grid State}
-		[] sonar(ID)|T then
+		[] sonar(ID)|T then					%not mandatory
 			{TreatStream T Grid State}
 		[] _|T then
 			{TreatStream T Grid State}
