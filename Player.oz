@@ -7,7 +7,7 @@ define
     StartPlayer
     TreatStream
 in
-    proc{TreatStream Stream <p1> <p2> ...} % as as many parameters as you want
+    proc{TreatStream Stream } <p1> <p2> ...% as as many parameters as you want
         % ...
     end
     fun{StartPlayer Color ID}

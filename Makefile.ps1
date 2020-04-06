@@ -2,7 +2,7 @@
 #more info page 9
 
 #clean
-Remove-Item *.ozf
+Remove-Item *.ozf -exclude PlayerBasicAI.ozf
 
 #compile to ozf file
 
