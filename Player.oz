@@ -1,16 +1,23 @@
 functor
 import
     Input
+    System
 export
     portPlayer:StartPlayer
 define
     StartPlayer
     TreatStream
+
+    Function % for compiling
 in
 
-
+    proc{Function Var}
+        {System.show 3}
+    end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    %We can decide how may arguments TreatStream has
 
     fun{StartPlayer Color ID}
         Stream
@@ -18,11 +25,11 @@ in
     in
         {NewPort Stream Port}
         thread
-            {TreatStream Stream <p1> <p2> ...}
+            {TreatStream Stream}
         end
         Port
     end
-    proc{TreatStream Stream } <p1> <p2> ...% as as many parameters as you want
+    proc{TreatStream Stream}
         case Stream
 		of nil then skip
         []initPosition(?ID ?Position)|T then Var in
@@ -34,57 +41,70 @@ in
                 %<row> ::= 1 | 2 | ... | Input.nRow
                 %<column> ::= 1 | 2 | ... | Input.nColumn
             {Function Var}
+            {TreatStream T}
         []move(?ID ?Position ?Direction)|T then Var in
             %<direction> ::= <carddirection> | surface
                 %<carddirection> ::= east | north | south | west
             {Function Var}
+            {TreatStream T}
         []dive|T then Var in
             {Function Var}
+            {TreatStream T}
         []chargeItem(?ID ?KindItem)|T then Var in
             %<item> ::= null | mine | missile | sonar | drone
                 %<drone> ::= drone(row <x>) | drone(column <y>)
                 %<mine> ::= null | <position>
             {Function Var}
+            {TreatStream T}
         []fireItem(?ID ?KindFire)|T then Var in
             %<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
             {Function Var}
+            {TreatStream T}
         []fireMine(?ID ?Mine)|T then Var in
             {Function Var}
+            {TreatStream T}
         []isDead(?Answer)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayMove(ID Direction)|T then Var in
             {Function Var}
+            {TreatStream T}
         []saySurface(ID)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayCharge(ID KindItem)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayMinePlaced(ID)|T then Var in
             {Function Var}
-        []initPosition(?ID ?Position)|T then Var in
-            {Function Var}
+            {TreatStream T}
         []sayMissileExplode(ID Position ?Message)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayMineExplode(ID Position ?Message)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayPassingDrone(Drone ?ID ?Answer)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayAnswerDrone(Drone ID Answer)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayPassingSonar(?ID ?Answer)|T then Var in
             {Function Var}
         []sayAnswerSonar(ID Answer)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayDeath(ID)|T then Var in
             {Function Var}
+            {TreatStream T}
         []sayDamageTaken(ID Damage LifeLeft)|T then Var in
             {Function Var}
+            {TreatStream T}
 		[] _|T then
-			{TreatStream Stream}
+			{TreatStream T}
 		end
     end
-
-
-
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
