@@ -19,7 +19,7 @@ in
 			fun {CreatePlayerList ID NPlayers Players Colors}
 				if (ID =< NPlayers) then
 					case Players#Colors
-					of (Hplayer|Tplayer)#(Hcolor|Tcolor) then {PlayerManager.playerGenerator Hplayer Hcolor ID}{CreatePlayerList ID+1 NPlayers Tplayer Tcolor}
+					of (Hplayer|Tplayer)#(Hcolor|Tcolor) then {PlayerManager.playerGenerator Hplayer Hcolor ID} | {CreatePlayerList ID+1 NPlayers Tplayer Tcolor}
 					else raise wrongPlayerException('ERROR : Players and/or Colors have wrong format') end
 					end
 				else nil
@@ -31,13 +31,14 @@ in
 	end
 
 % Initialise all the players
-	fun {InitPlayers PlayerList}
+	proc {InitPlayers PlayerList}
 		case PlayerList
 		of Player|T then ID Pos in 
 			{Send Player initPosition(ID Pos)}
 			{Wait ID} {Wait Pos}
 			{Send GuiPort initPlayer(ID Pos)}
 			{InitPlayers T}
+		else skip
 		end
 	end
 
