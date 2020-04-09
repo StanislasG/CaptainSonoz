@@ -50,7 +50,7 @@ in
   Players = {CreatePlayers}
   {InitPlayers Players}
 
-	% a faire choisir la position de depart
+	%TODO choisir la position de depart
     
 	{System.show 'it worked well until here'}
 
