@@ -3,16 +3,16 @@ import
 	GUI
 	Input
 	PlayerManager
-	System %added for show
+	System % added for System.show
+
 define
-	PortWindow = GUI.portWindow
-	GuiPort
-
+	% FUNCTIONS
 	CreatePlayers
-	Players
 	InitPlayers
+	% VARIABLES
+	GuiPort
+	Players
 in
-
 % Create a list of players
 	fun {CreatePlayers}
 		local 
@@ -41,41 +41,17 @@ in
 		else skip
 		end
 	end
-
+	
 	%1. Create the port for the GUI and launch its interface
-	GuiPort = {PortWindow}
+	GuiPort = {GUI.portWindow}
 	{Send GuiPort buildWindow}
     
   %2. Create the port for every player
   Players = {CreatePlayers}
   {InitPlayers Players}
-
-	%TODO choisir la position de depart
-    
-	{System.show 'it worked well until here'}
-
-  %3. Ask every player to set up (choose its initial point, they all are at the surface at this time)
-  %4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input le)
-
+	
+		%TODO choisir la position de depart
+	%3. Ask every player to set up (choose its initial point, they all are at the surface at this time)
+	%4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input le)
 
 end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%EBNF
-%<id> ::= null | id(id:<idNum> color:<color> name:Name)
-    %<idNum> ::= 1 | 2 | ... | Input.nbPlayer
-    %<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
-        %<colorNum> ::= 0 | 1 | ... | 255
-
-%<position> ::= pt(x:<row> y:<column>)
-    %<row> ::= 1 | 2 | ... | Input.nRow
-    %<column> ::= 1 | 2 | ... | Input.nColumn
-
-%<direction> ::= <carddirection> | surface
-    %<carddirection> ::= east | north | south | west
-
-%<item> ::= null | mine | missile | sonar | drone
-%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
-    %<drone> ::= drone(row <x>) | drone(column <y>)
-    %<mine> ::= null | <position>

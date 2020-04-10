@@ -1,1 +1,6 @@
+# Ignore these files
 Makefile*
+*.ozf
+
+# Avoid ignoring these (due to '!')
+!PlayerBasicAI.ozf 
