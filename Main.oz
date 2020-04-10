@@ -42,15 +42,18 @@ in
 		end
 	end
 	
-	%1. Create the port for the GUI and launch its interface
+	% Launch interface
 	GuiPort = {GUI.portWindow}
 	{Send GuiPort buildWindow}
     
-  %2. Create the port for every player
+  % Initialise players
   Players = {CreatePlayers}
   {InitPlayers Players}
 	
-		%TODO choisir la position de depart
+	%TODO choisir la position de depart
+	{System.show 'Hey' }
+
+
 	%3. Ask every player to set up (choose its initial point, they all are at the surface at this time)
 	%4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input le)
 
