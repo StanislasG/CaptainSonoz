@@ -2,15 +2,21 @@ functor
 import
     Input
     System
+	OS %added for random
 export
     portPlayer:StartPlayer
 define
+    % FUNCTIONS
     StartPlayer
     TreatStream
 
     Function % for compiling
 
     InitPosition
+	PosIsWater
+
+	% VARIABLES
+    Id Position
 in
 
     proc{Function Var}
@@ -19,13 +25,27 @@ in
 
 
     %inspirated by GUI.oz line 105
-    fun{InitPosition ID Position}
+    proc{InitPosition ID POSITION}
         Id Color Name X Y 
     in
-        %todo find a way to create store (Id Color Name X Y)
-        ID = id(id:Id color:Color name:Name)
-        Position pt(x:X y:Y)
+		if({PosIsWater pt(x:({OS.rand} mod Input.nRow) y:({OS.rand} mod Input.nCol))} == 1)
+			then {InitPosition ID POSITION}
+		else
+			%todo find a way to create store (Id Color Name X Y)
+			ID = id(id:Id color:Color name:Name)
+			POSITION = pt(x:X y:Y)
+		end
     end
+
+	%map in input
+	fun{PosIsWater POS}
+		if(POS.x > Input.nRow orelse POS.y > Input.nCol)
+			then ~1
+		else
+			{List.nth {List.nth Input.Map POS.x} POS.y}
+		end
+	end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -46,7 +66,7 @@ in
     proc{TreatStream Stream}
         case Stream
 		of nil then skip
-        []initPosition(?ID ?Position)|T then
+        []initPosition(?ID ?POSITION)|T then
             %<id> ::= null | id(id:<idNum> color:<color>) name:Name)
                 %<idNum> ::= 1 | 2 | ... | Input.nbPlayer
                 %<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
@@ -146,3 +166,20 @@ end
     %sayDeath(ID)
     %sayDamageTaken(ID Damage LifeLeft)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%EBNF
+%<id> ::= null | id(id:<idNum> color:<color> name:Name)
+    %<idNum> ::= 1 | 2 | ... | Input.nbPlayer
+    %<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
+        %<colorNum> ::= 0 | 1 | ... | 255
+
+%<position> ::= pt(x:<row> y:<column>)
+    %<row> ::= 1 | 2 | ... | Input.nRow
+    %<column> ::= 1 | 2 | ... | Input.nColumn
+
+%<direction> ::= <carddirection> | surface
+    %<carddirection> ::= east | north | south | west
+
+%<item> ::= null | mine | missile | sonar | drone
+%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
+    %<drone> ::= drone(row <x>) | drone(column <y>)
+    %<mine> ::= null | <position>

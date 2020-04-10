@@ -46,9 +46,9 @@ in
 	GuiPort = {GUI.portWindow}
 	{Send GuiPort buildWindow}
     
-  %2. Create the port for every player
-  Players = {CreatePlayers}
-  {InitPlayers Players}
+	%2. Create the port for every player
+	Players = {CreatePlayers}
+	{InitPlayers Players}
 	
 		%TODO choisir la position de depart
 	%3. Ask every player to set up (choose its initial point, they all are at the surface at this time)
