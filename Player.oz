@@ -10,38 +10,35 @@ define
 	StartPlayer
 	TreatStream
 	InitPosition
-	Function % for compiling
 	PosIsWater
+	Function
 
 	% VARIABLES
-	Id
-	Position
+	MyID MyCol MyName MyPos
 in
-
-	proc{Function Var}
-		{System.show 3}
-	end
 
 
     %inspirated by GUI.oz line 105
-	proc{InitPosition ID POSITION}
-		Id Color Name X Y 
+	proc{InitPosition ID Pos}
+		X Y 
 	in
-		if({PosIsWater pt(x:({OS.rand} mod Input.nRow) y:({OS.rand} mod Input.nCol))} == 1)
-			then {InitPosition ID POSITION}
+		X = ({OS.rand} mod Input.nRow)
+		Y = ({OS.rand} mod Input.nColumn)
+		if({PosIsWater pt(x:X y:Y)} == 1)
+			then {InitPosition ID Pos}
 		else
-			%todo find a way to create store (Id Color Name X Y)
-			ID = id(id:Id color:Color name:Name)
-			POSITION = pt(x:X y:Y)
+			ID = id(id:MyID color:MyCol name:MyName)
+			Pos = pt(x:X y:Y)
+			MyPos = pt(x:X y:Y)
 		end
 	end
 
 	%map in input
-	fun{PosIsWater POS}
-		if(POS.x > Input.nRow orelse POS.y > Input.nCol)
+	fun{PosIsWater Pos}
+		if(Pos.x > Input.nRow orelse Pos.y > Input.nColumn)
 			then ~1
 		else
-			{List.nth {List.nth Input.Map POS.x} POS.y}
+			{List.nth {List.nth Input.map Pos.x} Pos.y}
 		end
 	end
 
@@ -55,6 +52,10 @@ in
 		Stream
 		Port
 	in
+		MyCol = Color
+		MyID = ID
+		MyName = "PlayerNameTest"
+
 		{NewPort Stream Port}
 		thread
 			{TreatStream Stream}
@@ -65,19 +66,10 @@ in
 	proc{TreatStream Stream}
 		case Stream
 		of nil then skip
-		[]initPosition(?ID ?POSITION)|T then
-			%<id> ::= null | id(id:<idNum> color:<color>) name:Name)
-				%<idNum> ::= 1 | 2 | ... | Input.nbPlayer
-				%<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
-							%<colorNum> ::= 0 | 1 | ... | 255
-				%<position> ::= pt(x:<row> y:<column>)
-					%<row> ::= 1 | 2 | ... | Input.nRow
-					%<column> ::= 1 | 2 | ... | Input.nColumn
-
-				%todo case ID and Positon null
-			{InitPosition ID POSITION}
+		[]initPosition(?ID ?Pos)|T then
+			{InitPosition ID Pos}
 			{TreatStream T}
-		[]move(?ID ?POSITION ?Direction)|T then Var in
+		[]move(?ID ?Pos ?Direction)|T then Var in
 			%<direction> ::= <carddirection> | surface
 				%<carddirection> ::= east | north | south | west
 			{Function Var}
