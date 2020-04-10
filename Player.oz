@@ -2,6 +2,7 @@ functor
 import
 	Input
 	System
+	OS %added for random
 export
 	portPlayer:StartPlayer
 define
@@ -10,9 +11,11 @@ define
 	TreatStream
 	InitPosition
 	Function % for compiling
+	PosIsWater
 
-	% VALUES
-	
+	% VARIABLES
+	Id
+	Position
 in
 
 	proc{Function Var}
@@ -20,14 +23,28 @@ in
 	end
 
 
-	%inspirated by GUI.oz line 105
-	fun{InitPosition ID Position}
+    %inspirated by GUI.oz line 105
+	proc{InitPosition ID POSITION}
 		Id Color Name X Y 
 	in
-		%todo find a way to create store (Id Color Name X Y)
-		ID = id(id:Id color:Color name:Name)
-		Position = pt(x:X y:Y)
+		if({PosIsWater pt(x:({OS.rand} mod Input.nRow) y:({OS.rand} mod Input.nCol))} == 1)
+			then {InitPosition ID POSITION}
+		else
+			%todo find a way to create store (Id Color Name X Y)
+			ID = id(id:Id color:Color name:Name)
+			POSITION = pt(x:X y:Y)
+		end
 	end
+
+	%map in input
+	fun{PosIsWater POS}
+		if(POS.x > Input.nRow orelse POS.y > Input.nCol)
+			then ~1
+		else
+			{List.nth {List.nth Input.Map POS.x} POS.y}
+		end
+	end
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -48,7 +65,7 @@ in
 	proc{TreatStream Stream}
 		case Stream
 		of nil then skip
-		[]initPosition(?ID ?Position)|T then
+		[]initPosition(?ID ?POSITION)|T then
 			%<id> ::= null | id(id:<idNum> color:<color>) name:Name)
 				%<idNum> ::= 1 | 2 | ... | Input.nbPlayer
 				%<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
@@ -58,9 +75,9 @@ in
 					%<column> ::= 1 | 2 | ... | Input.nColumn
 
 				%todo case ID and Positon null
-			{InitPosition ID Position}
+			{InitPosition ID POSITION}
 			{TreatStream T}
-		[]move(?ID ?Position ?Direction)|T then Var in
+		[]move(?ID ?POSITION ?Direction)|T then Var in
 			%<direction> ::= <carddirection> | surface
 				%<carddirection> ::= east | north | south | west
 			{Function Var}
@@ -126,25 +143,42 @@ in
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-		%message to be handled
+	%message to be handled
 
-		%initPosition(?ID ?Position)
-		%move(?ID ?Position ?Direction)
-		%dive
-		%chargeItem(?ID ?KindItem)
-		%fireItem(?ID ?KindFire)
-		%fireMine(?ID ?Mine)
-		%isDead(?Answer)
-		%sayMove(ID Direction)
-		%saySurface(ID)
-		%sayCharge(ID KindItem)
-		%sayMinePlaced(ID)
-		%sayMissileExplode(ID Position ?Message)
-		%sayMineExplode(ID Position ?Message)
-		%sayPassingDrone(Drone ?ID ?Answer)
-		%sayAnswerDrone(Drone ID Answer)
-		%sayPassingSonar(?ID ?Answer)
-		%sayAnswerSonar(ID Answer)
-		%sayDeath(ID)
-		%sayDamageTaken(ID Damage LifeLeft)
+	%initPosition(?ID ?Position)
+	%move(?ID ?Position ?Direction)
+	%dive
+	%chargeItem(?ID ?KindItem)
+	%fireItem(?ID ?KindFire)
+	%fireMine(?ID ?Mine)
+	%isDead(?Answer)
+	%sayMove(ID Direction)
+	%saySurface(ID)
+	%sayCharge(ID KindItem)
+	%sayMinePlaced(ID)
+	%sayMissileExplode(ID Position ?Message)
+	%sayMineExplode(ID Position ?Message)
+	%sayPassingDrone(Drone ?ID ?Answer)
+	%sayAnswerDrone(Drone ID Answer)
+	%sayPassingSonar(?ID ?Answer)
+	%sayAnswerSonar(ID Answer)
+	%sayDeath(ID)
+	%sayDamageTaken(ID Damage LifeLeft)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%EBNF
+%<id> ::= null | id(id:<idNum> color:<color> name:Name)
+	%<idNum> ::= 1 | 2 | ... | Input.nbPlayer
+	%<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
+		%<colorNum> ::= 0 | 1 | ... | 255
+
+%<position> ::= pt(x:<row> y:<column>)
+	%<row> ::= 1 | 2 | ... | Input.nRow
+	%<column> ::= 1 | 2 | ... | Input.nColumn
+
+%<direction> ::= <carddirection> | surface
+	%<carddirection> ::= east | north | south | west
+
+%<item> ::= null | mine | missile | sonar | drone
+%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
+	%<drone> ::= drone(row <x>) | drone(column <y>)
+	%<mine> ::= null | <position>
