@@ -152,10 +152,10 @@ in
 		case Stream
 		of nil then skip
 
-		[]initPosition(?ID ?Pos)|T then
+		[]initPosition(?ID ?Pos)|T then NewMyInfo in
 			% MyInfo as argument to get information needed
-			MyInfo = {InitPosition ID Pos MyInfo}
-			{TreatStream T MyInfo PlayersInfo}
+			NewMyInfo = {InitPosition ID Pos MyInfo}
+			{TreatStream T NewMyInfo PlayersInfo}
 		
 		[]move(?ID ?Pos ?Direction)|T then Var in
 			MyInfo = {Move ID Pos Direction MyInfo}
