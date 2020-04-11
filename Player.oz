@@ -6,130 +6,217 @@ import
 export
 	portPlayer:StartPlayer
 define
-	% FUNCTIONS
-	StartPlayer
+	% Main function
 	TreatStream
-	InitPosition
-	PosIsWater
-	Function
 
-	% VARIABLES
-	MyID MyCol MyName MyPos
+	% Base functions
+	North South East West
+	AccessiblePosition
+	
+	% Game start functions
+	StartPlayer
+	InitPosition
+
+	% In-game management functions
+	Move FindPath ChooseDirection
+	
+
+	Function % for compiling TODO delete this
 in
 
+% ------------------------------------------
+% Structure
+% ------------------------------------------
+% myInfo(id:___ path:___)
+% 		- id: my ID, id(id:___ color:___ name:___)
+% 		- path: my path, list of pt(x:___ y:___) where path.1 = position
+% 
+% player(id:___ lives:___ path:___ mines:___)
 
-    %inspirated by GUI.oz line 105
-	proc{InitPosition ID Pos}
-		X Y 
+
+% ------------------------------------------
+% Base functions
+% ------------------------------------------
+	% Return pt north/... of Pos
+	fun {North Pos} pt(x:Pos.x   y:Pos.y-1) end
+	fun {South Pos} pt(x:Pos.x   y:Pos.y+1) end
+	fun {East  Pos} pt(x:Pos.x+1 y:Pos.y  ) end
+	fun {West  Pos} pt(x:Pos.x-1 y:Pos.y  ) end
+
+	% Check if accessible position (not outside of bounds and not an island)
+	fun {AccessiblePosition Pos}
+		% 0 meaning false and 1 meaning true
+		case Pos
+		of pt(x:X y:Y) then
+			if (X =< 0 orelse Y =< 0 orelse X > Input.nRow orelse Y > Input.nColumn orelse {List.nth {List.nth Input.map X} Y} == 1) 
+				then 0
+			else 1
+			end
+		[] _ then nil
+		end
+	end
+
+% ------------------------------------------
+% Initialisation
+% ------------------------------------------
+	% Initialise Position (random)
+	fun{InitPosition ID Pos MyInfo}
+		X Y
 	in
-		X = ({OS.rand} mod Input.nRow)
-		Y = ({OS.rand} mod Input.nColumn)
-		if({PosIsWater pt(x:X y:Y)} == 1)
-			then {InitPosition ID Pos}
+		X = ({OS.rand} mod Input.nRow) + 1
+		Y = ({OS.rand} mod Input.nColumn) + 1
+		% if position is not accessible
+		if({AccessiblePosition pt(x:X y:Y)} == 0)
+			then {InitPosition ID Pos MyInfo}
 		else
-			ID = id(id:MyID color:MyCol name:MyName)
+			ID = MyInfo.id
 			Pos = pt(x:X y:Y)
-			MyPos = pt(x:X y:Y)
+			% return updated info with position
+			myInfo(id:MyInfo.id path:Pos)
 		end
 	end
 
-	%map in input
-	fun{PosIsWater Pos}
-		if(Pos.x > Input.nRow orelse Pos.y > Input.nColumn)
-			then ~1
-		else
-			{List.nth {List.nth Input.map Pos.x} Pos.y}
-		end
-	end
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-	%We can decide how may arguments TreatStream has
-	%An example in GUI.oz
-
+	% Start Player (portPlayer from PlayerManager)
 	fun{StartPlayer Color ID}
 		Stream
 		Port
+		MyInfo
 	in
-		MyCol = Color
-		MyID = ID
-		MyName = "PlayerNameTest"
-
+		% MyInfo will be stored by passing it as argument in TreatStream
+		MyInfo = myInfo(id:id(id:ID color:Color name:'PlayerNameTest') path:nil)
 		{NewPort Stream Port}
 		thread
-			{TreatStream Stream}
+			{TreatStream Stream MyInfo nil} % TODO : player name ?
 		end
 		Port
 	end
 
-	proc{TreatStream Stream}
+
+% ------------------------------------------
+% In-game management - Send Information
+% ------------------------------------------
+	% Moving
+	fun {Move ID Pos Direction MyInfo}
+		P Possib
+	in
+		% Calculate useful info
+		P = MyInfo.path.1
+		Possib = directions(north:{AccessiblePosition {North P}} east:{AccessiblePosition {East P}} south:{AccessiblePosition {South P}} west:{AccessiblePosition {West P}})
+		% Assign values to unassigned var
+		Direction = {FindPath MyInfo.path.1 MyInfo.path Possib}
+		ID = MyInfo.id
+		case Direction
+		of north   then Pos = {North P}
+		[] south   then Pos = {South P}
+		[] east    then Pos = {East  P}
+		[] west    then Pos = {West  P}
+		[] surface then Pos = P
+		end
+		% Return modified MyInfo
+		myInfo(id:MyInfo.id path:Pos|MyInfo.path)
+	end
+
+	% Find a valid path
+	fun {FindPath Pos Path Possib}
+		if Possib == directions(north:0 east:0 south:0 west:0) 
+			then surface
+		else
+			if Path == nil then {ChooseDirection Possib}
+			elseif Path.1 == {North Pos} then {FindPath Pos Path.2 directions(north:0            	east:Possib.east  south:Possib.south  west:Possib.west)}
+			elseif Path.1 == {South Pos} then {FindPath Pos Path.2 directions(north:Possib.north 	east:Possib.east  south:0             west:Possib.west)}
+			elseif Path.1 == {East  Pos} then {FindPath Pos Path.2 directions(north:Possib.north 	east:0            south:Possib.south  west:Possib.west)}
+			elseif Path.1 == {West  Pos} then {FindPath Pos Path.2 directions(north:Possib.north 	east:Possib.east  south:Possib.south  west:0          )}
+			else {FindPath Pos Path.2 Possib}
+			end
+		end
+	end
+
+	% Choose a random direction
+	fun {ChooseDirection Possib}
+		case ({OS.rand} mod 4)
+		of 0 then if Possib.north == 1 then north else {ChooseDirection Possib} end
+		[] 1 then if Possib.east  == 1 then east  else {ChooseDirection Possib} end
+		[] 2 then if Possib.south == 1 then south else {ChooseDirection Possib} end
+		[] 3 then if Possib.west  == 1 then west  else {ChooseDirection Possib} end
+		end
+	end
+
+% ------------------------------------------
+% In-game management - Receive Information
+% ------------------------------------------
+
+% ------------------------------------------
+% TreatStream
+% ------------------------------------------
+	proc{TreatStream Stream MyInfo PlayersInfo}
 		case Stream
 		of nil then skip
+
 		[]initPosition(?ID ?Pos)|T then
-			{InitPosition ID Pos}
-			{TreatStream T}
+			% MyInfo as argument to get information needed
+			MyInfo = {InitPosition ID Pos MyInfo}
+			{TreatStream T MyInfo PlayersInfo}
+		
 		[]move(?ID ?Pos ?Direction)|T then Var in
-			%<direction> ::= <carddirection> | surface
-				%<carddirection> ::= east | north | south | west
-			{Function Var}
-			{TreatStream T}
+			MyInfo = {Move ID Pos Direction MyInfo}
+			{TreatStream T MyInfo PlayersInfo}
+
 		[]dive|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]chargeItem(?ID ?KindItem)|T then Var in
 			%<item> ::= null | mine | missile | sonar | drone
 			%<drone> ::= drone(row <x>) | drone(column <y>)
 			%<mine> ::= null | <position>
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]fireItem(?ID ?KindFire)|T then Var in
 			%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]fireMine(?ID ?Mine)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]isDead(?Answer)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayMove(ID Direction)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]saySurface(ID)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayCharge(ID KindItem)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayMinePlaced(ID)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayMissileExplode(ID Position ?Message)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayMineExplode(ID Position ?Message)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayPassingDrone(Drone ?ID ?Answer)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayAnswerDrone(Drone ID Answer)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayPassingSonar(?ID ?Answer)|T then Var in
 			{Function Var}
 		[]sayAnswerSonar(ID Answer)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayDeath(ID)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[]sayDamageTaken(ID Damage LifeLeft)|T then Var in
 			{Function Var}
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		[] _|T then
-			{TreatStream T}
+			{TreatStream T MyInfo PlayersInfo}
 		end
 	end
 end
