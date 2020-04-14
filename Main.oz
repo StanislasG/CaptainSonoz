@@ -70,12 +70,9 @@ in
 		{Time.delay 250} 
 
 		if ({List.nth TimeAtSurf CurrentP} == Input.turnSurface) then %check if may dive
-			{System.show iCanDive}
 			{Send {List.nth Players CurrentP} dive} %send dive to the player
 		  	{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ~1} } 
 		elseif {And {List.nth TimeAtSurf CurrentP}<Input.turnSurface  {List.nth TimeAtSurf CurrentP}>=0} then
-			{System.show iCanNotDive}
-			{System.show {List.nth TimeAtSurf CurrentP}}
 			{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ({List.nth TimeAtSurf CurrentP}+1)}}
 		else %already under water
 			%continue playing
@@ -89,7 +86,7 @@ in
 					{Send GuiPort movePlayer(ID Pos)} 
 					NewTimeAtSurf=TimeAtSurf 
 				end
-			{TurnByTurn {NextPlayer CurrentP} NewTimeAtSurf}
+				{TurnByTurn {NextPlayer CurrentP} NewTimeAtSurf}
 			end
 		end
 	end
