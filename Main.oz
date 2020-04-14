@@ -54,23 +54,29 @@ in
 % In-game management
 % ------------------------------------------
 	fun{ArrayReplace Array Pos NewItem}
-		if(Pos<1) then raise wrongArrayPositionException() end
+		if(Pos<1) then {System.show pos_error} raise wrongArrayPositionException() end
 		elseif(Pos==1) then NewItem|Array.2 
 		else Array.1|{ArrayReplace Array.2 Pos-1 NewItem} end
 	end
 
-	fun{NextPlayer CurrentP NbPlayer} ((CurrentP+1) mod NbPlayer)+1 end
+	fun{NextPlayer CurrentP}
+		if (CurrentP == Input.nbPlayer) then 1 %Id start at 1
+		else CurrentP+1 end
+	end
 
-	fun{TurnByTurn CurrentP TimeAtSurf NbPlayer}
-		%TimeAtSurf array with all player
+	proc{TurnByTurn CurrentP TimeAtSurf}
+		%TimeAtSurf array with all player and nb of turns their waited
+		%~1 == is not waiting to dive
+		{System.show TimeAtSurf}
 
-		if TimeAtSurf.CurrentP == Input.turnSurface then %check if may dive
-			{Send Players.CurrentP dive}
-		  	{TurnByTurn {NextPlayer CurrentP NbPlayer} {ArrayReplace TimeAtSurf CurrentP ~1} NbPlayer} %~1 == is not waiting to dive
-		elseif {And TimeAtSurf.CurrentP<Input.turnSurface  TimeAtSurf.CurrentP>=0} then
-			{TurnByTurn {NextPlayer CurrentP NbPlayer} {ArrayReplace TimeAtSurf CurrentP TimeAtSurf.CurrentP+1} NbPlayer}
+		if ({List.nth TimeAtSurf CurrentP} == Input.turnSurface) then %check if may dive
+			{Send {List.nth Players CurrentP} dive} %send dive to the player
+		  	{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ~1} } 
+		elseif {And {List.nth TimeAtSurf CurrentP}<Input.turnSurface  {List.nth TimeAtSurf CurrentP}>=0} then
+			{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ({List.nth TimeAtSurf CurrentP}+1)}}
 		else %already under water
-			{System.show "good"}
+			{System.show first_underneath}
+			%continue playing
 		end
 	end
 
@@ -89,8 +95,10 @@ in
 
 	%4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input le)
 	if (Input.isTurnByTurn) then
-		{System.show "isTurnByTurn is active"}
+		{System.show isTurnByTurn_is_active}
+		{TurnByTurn 1 0|0|nil}
 	else
-		{System.show "isTurnByTurn is not active"}
+		{System.show isTurnByTurn_is_not_active}
 	end
+	{System.show program_end}
 end
