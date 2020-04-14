@@ -4,7 +4,6 @@ import
 	Input
 	PlayerManager
 	System % added for System.show
-
 define
 	% FUNCTIONS
 	CreatePlayers
@@ -68,20 +67,30 @@ in
 		%TimeAtSurf array with all player and nb of turns their waited
 		%~1 == is not waiting to dive
 
+		{Time.delay 250} 
+
 		if ({List.nth TimeAtSurf CurrentP} == Input.turnSurface) then %check if may dive
+			{System.show iCanDive}
 			{Send {List.nth Players CurrentP} dive} %send dive to the player
 		  	{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ~1} } 
 		elseif {And {List.nth TimeAtSurf CurrentP}<Input.turnSurface  {List.nth TimeAtSurf CurrentP}>=0} then
+			{System.show iCanNotDive}
+			{System.show {List.nth TimeAtSurf CurrentP}}
 			{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ({List.nth TimeAtSurf CurrentP}+1)}}
 		else %already under water
-			{System.show underneath}
 			%continue playing
-			local ID Pos Direction in
+			local ID Pos Direction NewTimeAtSurf in
 				{Send {List.nth Players CurrentP} move(?ID ?Pos ?Direction)}
 				{Wait ID} {Wait Pos} {Wait Direction}
-				{Send GuiPort movePlayer(ID Pos)}
+				if (Direction==surface) then 
+					{Send GuiPort surface(ID)} 
+					NewTimeAtSurf={ArrayReplace TimeAtSurf CurrentP 0}
+				else 
+					{Send GuiPort movePlayer(ID Pos)} 
+					NewTimeAtSurf=TimeAtSurf 
+				end
+			{TurnByTurn {NextPlayer CurrentP} NewTimeAtSurf}
 			end
-			{TurnByTurn {NextPlayer CurrentP} TimeAtSurf}
 		end
 	end
 
