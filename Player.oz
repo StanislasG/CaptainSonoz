@@ -19,7 +19,7 @@ define
 
 	% In-game management functions
 	Move FindPath ChooseDirection
-	
+	Dive Surface
 
 	Function % for compiling TODO delete this
 in
@@ -27,9 +27,10 @@ in
 % ------------------------------------------
 % Structure
 % ------------------------------------------
-% myInfo(id:___ path:___)
+% myInfo(id:___ path:___ surface:__)
 % 		- id: my ID, id(id:___ color:___ name:___)
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
+%		- surface: true if at surface, false if submarin is underwater
 % 
 % player(id:___ lives:___ path:___ mines:___)
 
@@ -72,7 +73,7 @@ in
 			ID = MyInfo.id
 			Pos = pt(x:X y:Y)
 			% return updated info with position
-			myInfo(id:MyInfo.id path:Pos)
+			myInfo(id:MyInfo.id path:Pos surface:true)
 		end
 	end
 
@@ -83,7 +84,7 @@ in
 		MyInfo
 	in
 		% MyInfo will be stored by passing it as argument in TreatStream
-		MyInfo = myInfo(id:id(id:ID color:Color name:'PlayerNameTest') path:nil)
+		MyInfo = myInfo(id:id(id:ID color:Color name:'PlayerNameTest') path:nil surface:true)
 		{NewPort Stream Port}
 		thread
 			{TreatStream Stream MyInfo nil} % TODO : player name ?
@@ -111,9 +112,13 @@ in
 		[] east    then Pos = {East  P}
 		[] west    then Pos = {West  P}
 		[] surface then Pos = P
-		end
+		end 
 		% Return modified MyInfo
-		myInfo(id:MyInfo.id path:Pos|MyInfo.path)
+		if(Pos == P) then
+			{Surface MyInfo}
+		else 
+			myInfo(id:MyInfo.id path:Pos|MyInfo.path surface:false)
+		end
 	end
 
 	% Find a valid path
@@ -144,7 +149,8 @@ in
 % ------------------------------------------
 % In-game management - Receive Information
 % ------------------------------------------
-
+	fun{Dive MyInfo}	myInfo(id:MyInfo.id path:MyInfo.path 	surface:false)	end
+	fun{Surface MyInfo} myInfo(id:MyInfo.id path:MyInfo.path.1 	surface:true)	end
 % ------------------------------------------
 % TreatStream
 % ------------------------------------------
@@ -157,13 +163,15 @@ in
 			NewMyInfo = {InitPosition ID Pos MyInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 		
-		[]move(?ID ?Pos ?Direction)|T then Var in
-			MyInfo = {Move ID Pos Direction MyInfo}
-			{TreatStream T MyInfo PlayersInfo}
+		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
+			NewMyInfo = {Move ID Pos Direction MyInfo}
+			%todo case surface saySurface
+			%todo sayMove to main
+			{TreatStream T NewMyInfo PlayersInfo}
 
-		[]dive|T then Var in
-			{Function Var}
-			{TreatStream T MyInfo PlayersInfo}
+		[]dive|T then
+			{TreatStream T {Dive MyInfo} PlayersInfo}
+
 		[]chargeItem(?ID ?KindItem)|T then Var in
 			%<item> ::= null | mine | missile | sonar | drone
 			%<drone> ::= drone(row <x>) | drone(column <y>)
