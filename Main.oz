@@ -67,7 +67,6 @@ in
 	proc{TurnByTurn CurrentP TimeAtSurf}
 		%TimeAtSurf array with all player and nb of turns their waited
 		%~1 == is not waiting to dive
-		{System.show TimeAtSurf}
 
 		if ({List.nth TimeAtSurf CurrentP} == Input.turnSurface) then %check if may dive
 			{Send {List.nth Players CurrentP} dive} %send dive to the player
@@ -75,8 +74,14 @@ in
 		elseif {And {List.nth TimeAtSurf CurrentP}<Input.turnSurface  {List.nth TimeAtSurf CurrentP}>=0} then
 			{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ({List.nth TimeAtSurf CurrentP}+1)}}
 		else %already under water
-			{System.show first_underneath}
+			{System.show underneath}
 			%continue playing
+			local ID Pos Direction in
+				{Send {List.nth Players CurrentP} move(?ID ?Pos ?Direction)}
+				{Wait ID} {Wait Pos} {Wait Direction}
+				{Send GuiPort movePlayer(ID Pos)}
+			end
+			{TurnByTurn {NextPlayer CurrentP} TimeAtSurf}
 		end
 	end
 
@@ -95,7 +100,6 @@ in
 
 	%4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input le)
 	if (Input.isTurnByTurn) then
-		{System.show isTurnByTurn_is_active}
 		{TurnByTurn 1 0|0|nil}
 	else
 		{System.show isTurnByTurn_is_not_active}

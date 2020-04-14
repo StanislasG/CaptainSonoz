@@ -19,7 +19,7 @@ define
 
 	% In-game management functions
 	Move FindPath ChooseDirection
-	Dive Surface
+	Dive Surface GetPosition
 
 	Function % for compiling TODO delete this
 in
@@ -99,12 +99,15 @@ in
 	% Moving
 	fun {Move ID Pos Direction MyInfo}
 		P Possib
-	in
+	in		
 		% Calculate useful info
-		P = MyInfo.path.1
+		P = {GetPosition MyInfo}
+
 		Possib = directions(north:{AccessiblePosition {North P}} east:{AccessiblePosition {East P}} south:{AccessiblePosition {South P}} west:{AccessiblePosition {West P}})
+
 		% Assign values to unassigned var
-		Direction = {FindPath MyInfo.path.1 MyInfo.path Possib}
+		Direction = {FindPath P MyInfo.path Possib}
+
 		ID = MyInfo.id
 		case Direction
 		of north   then Pos = {North P}
@@ -113,6 +116,7 @@ in
 		[] west    then Pos = {West  P}
 		[] surface then Pos = P
 		end 
+
 		% Return modified MyInfo
 		if(Pos == P) then
 			{Surface MyInfo}
@@ -149,8 +153,16 @@ in
 % ------------------------------------------
 % In-game management - Receive Information
 % ------------------------------------------
-	fun{Dive MyInfo}	myInfo(id:MyInfo.id path:MyInfo.path 	surface:false)	end
-	fun{Surface MyInfo} myInfo(id:MyInfo.id path:MyInfo.path.1 	surface:true)	end
+	fun{Dive MyInfo} 	myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:false) end
+
+	fun{Surface MyInfo} myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:true)	 end
+
+	fun{GetPosition MyInfo}
+		case MyInfo.path 
+			of H|_ 			then H
+			[] pt(x:_ y:_)	then MyInfo.path
+		end
+	end
 % ------------------------------------------
 % TreatStream
 % ------------------------------------------
