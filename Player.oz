@@ -12,6 +12,7 @@ define
 	% Base functions
 	North South East West
 	AccessiblePosition
+	ManhattanDistance
 	
 	% Game start functions
 	StartPlayer
@@ -45,7 +46,11 @@ in
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
 %		- surface: true if at surface, false if submarin is underwater
 % 
-% player(id:___ lives:___ path:___ mines:___)
+% player(id:___ lives:___ path:___ mines:___ mineStatus:___ missileStatus:___ sonarStatus:___ droneStatus:___)
+% 		- id: player's ID, id(id:___ color:___ name:___)
+% 		- path: player's path, nil | (<direction>|nil)
+% 		- mines: mines of a player, nil | (<position>|mines)
+% 		- ...Status: from 1 to Input.Mine / Input.Sonar / ...
 
 
 % ------------------------------------------
