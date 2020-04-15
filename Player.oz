@@ -20,6 +20,7 @@ define
 	% In-game management functions
 	Move FindPath ChooseDirection
 	Dive Surface GetPosition
+	ChargeItem FireItem FireMine
 in
 
 % ------------------------------------------
@@ -148,6 +149,25 @@ in
 		end
 	end
 
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%todo need to charge and bind KindItem if produced
+	%check when item is produced: Input.mine, Input.missile, Input.sonar, Input.drone 
+	proc{ChargeItem ID KindItem MyInfo}
+		%<item> ::= null | mine | missile | sonar | drone
+		ID = MyInfo.id
+		KindItem = null
+	end
+
+
+	proc{FireItem ID Item MyInfo}
+		ID = MyInfo.id
+		Item = null
+	end
+
+	proc{FireMine ID Mine MyInfo}
+		ID = MyInfo.id
+		Mine = null
+	end
 % ------------------------------------------
 % In-game management - Receive Information
 % ------------------------------------------
@@ -183,22 +203,24 @@ in
 			{TreatStream T {Dive MyInfo} PlayersInfo}
 
 		[]chargeItem(?ID ?KindItem)|T then 
-			%<item> ::= null | mine | missile | sonar | drone
-			%<drone> ::= drone(row <x>) | drone(column <y>)
-			%<mine> ::= null | <position>
-			
+			{ChargeItem ID KindItem MyInfo} %todo, currently only null
 			{TreatStream T MyInfo PlayersInfo}
+
 		[]fireItem(?ID ?KindFire)|T then 
 			%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
-			
+			%<drone> ::= drone(row <x>) | drone(column <y>)
+			%<mine> ::= null | <position>
+			{FireItem ID KindFire MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
 		[]fireMine(?ID ?Mine)|T then 
+			{FireMine ID Mine MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
 		[]isDead(?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
 		[]sayMove(ID Direction)|T then 
-			{System.show Direction}
+			%everyone is getting the message
 			{TreatStream T MyInfo PlayersInfo}
+			
 		[]saySurface(ID)|T then
 			%everyone is getting the message
 			{TreatStream T MyInfo PlayersInfo}
@@ -207,7 +229,12 @@ in
 			{TreatStream T MyInfo PlayersInfo}
 		[]sayMinePlaced(ID)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayMissileExplode(ID Position ?Message)|T then 
+		[]sayMissileExplode(ID Position ?Message)|T then
+			
+			%todo Manhattan distance
+			%todo sayDoamgeTaken
+			%todo sayDeath
+			Message = null %no dommage taken
 			{TreatStream T MyInfo PlayersInfo}
 		[]sayMineExplode(ID Position ?Message)|T then 
 			{TreatStream T MyInfo PlayersInfo}

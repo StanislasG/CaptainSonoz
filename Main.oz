@@ -86,25 +86,63 @@ in
 		{Time.delay 250} 
 
 		if ({List.nth TimeAtSurf CurrentP} == Input.turnSurface) then %check if may dive
-			{Send {List.nth Players CurrentP} dive} %send dive to the player
-		  	{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ~1} } 
-		elseif {And {List.nth TimeAtSurf CurrentP}<Input.turnSurface  {List.nth TimeAtSurf CurrentP}>=0} then
+			{Send {List.nth Players CurrentP} dive} %diving
+		  	{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ~1}} 
+		elseif {And {List.nth TimeAtSurf CurrentP}<Input.turnSurface  {List.nth TimeAtSurf CurrentP}>=0} then %need to wait for diving
 			{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ({List.nth TimeAtSurf CurrentP}+1)}}
 		else %already under water
 			%continue playing
-			local ID Pos Direction NewTimeAtSurf in
+			local ID Pos Direction in
 				{Send {List.nth Players CurrentP} move(?ID ?Pos ?Direction)}
 				{Wait ID} {Wait Pos} {Wait Direction}
 				if (Direction==surface) then 
 					{Send GuiPort surface(ID)}
 					{Broadcast saySurface(CurrentP)}
-					NewTimeAtSurf={ArrayReplace TimeAtSurf CurrentP 0}
+					{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP 0}} %0 or 1, do not understand the rules
+					%end turn
 				else 
+					%continue playing
 					{Send GuiPort movePlayer(ID Pos)}
 					{Broadcast sayMove(ID Direction)}
-					NewTimeAtSurf=TimeAtSurf 
+
+					%charge an item, broadcast if produced
+					local IDcharge KindItem in
+						{Send {List.nth Players CurrentP} chargeItem(?IDcharge ?KindItem)}
+						{Wait IDcharge} {Wait KindItem}
+						case KindItem
+							of null 	then skip
+							[] mine 	then {Broadcast mine}
+							[] missile 	then {Broadcast missile}
+							[] sonar 	then {Broadcast sonar}
+							[] drone 	then {Broadcast drone}
+						end
+					end
+
+					%ask if item fired, broadcast if fired
+					local IDfire Item in
+						{Send {List.nth Players CurrentP} fireItem(?IDfire ?Item)}
+						{Wait IDfire} {Wait Item}
+						case Item
+							of null 			then skip
+							[] mine(PosMine) 	then {Broadcast sayMinePlaced(IDfire)} {Send GuiPort putMine(IDfire PosMine)}
+							[] missile 			then {Broadcast missile}%todo sayMissileExplode(ID Position ?Message)
+							[] sonar 			then {Broadcast sonar} %todo sayPassingSonar(?ID ?Answer), sayAnswerSonar(ID Answer) 
+							[] drone 			then {Broadcast drone} %todo sayPassingDrone(Drone ?ID ?Answer), sayAnswerDrone(Drone ID Answer)
+						end
+					end
+
+					%Player can explode a mine
+					local IDmine Mine in
+						{Send {List.nth Players CurrentP} fireMine(?IDmine ?Mine)}
+						{Wait IDmine} {Wait Mine}
+						case Mine 
+							of null 		then skip
+							[] pt(x:_ y:_) 	then Message in {Broadcast sayMineExplode(IDmine Mine ?Message)} {Send GuiPort removeMine(IDmine Mine)} %todo sayMineExplode
+						end
+					end
+
+					{TurnByTurn {NextPlayer CurrentP} TimeAtSurf}
 				end
-				{TurnByTurn {NextPlayer CurrentP} NewTimeAtSurf}
 			end
 		end
 	end
