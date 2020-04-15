@@ -11,6 +11,7 @@ define
 	
 	ArrayReplace
 	NextPlayer
+	Broadcast
 	TurnByTurn
 
 	% VARIABLES
@@ -63,6 +64,21 @@ in
 		else CurrentP+1 end
 	end
 
+%sayMove(ID Direction), saySurface(ID), sayCharge(ID KindItem), sayMinePlaced(ID), sayAnswerDrone(Drone ID Answer), sayAnswerSonar(ID Answer), sayDeath(ID), sayDamageTaken(ID Damage LifeLeft)
+	proc{Broadcast Message}
+		proc{MessageToPlayer Message CurrentP}
+
+			if(CurrentP < Input.nbPlayer) then
+				{Send {List.nth Players CurrentP} Message}
+				{MessageToPlayer Message {NextPlayer CurrentP}}
+			else
+				{Send {List.nth Players CurrentP} Message}
+			end
+		end
+	in
+		{MessageToPlayer Message 1} %ID of first player is one
+	end
+
 	proc{TurnByTurn CurrentP TimeAtSurf}
 		%TimeAtSurf array with all player and nb of turns their waited
 		%~1 == is not waiting to dive
@@ -80,10 +96,12 @@ in
 				{Send {List.nth Players CurrentP} move(?ID ?Pos ?Direction)}
 				{Wait ID} {Wait Pos} {Wait Direction}
 				if (Direction==surface) then 
-					{Send GuiPort surface(ID)} 
+					{Send GuiPort surface(ID)}
+					{Broadcast saySurface(CurrentP)}
 					NewTimeAtSurf={ArrayReplace TimeAtSurf CurrentP 0}
 				else 
-					{Send GuiPort movePlayer(ID Pos)} 
+					{Send GuiPort movePlayer(ID Pos)}
+					{Broadcast sayMove(ID Direction)}
 					NewTimeAtSurf=TimeAtSurf 
 				end
 				{TurnByTurn {NextPlayer CurrentP} NewTimeAtSurf}

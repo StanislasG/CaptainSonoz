@@ -20,8 +20,6 @@ define
 	% In-game management functions
 	Move FindPath ChooseDirection
 	Dive Surface GetPosition
-
-	Function % for compiling TODO delete this
 in
 
 % ------------------------------------------
@@ -184,56 +182,46 @@ in
 		[]dive|T then
 			{TreatStream T {Dive MyInfo} PlayersInfo}
 
-		[]chargeItem(?ID ?KindItem)|T then Var in
+		[]chargeItem(?ID ?KindItem)|T then 
 			%<item> ::= null | mine | missile | sonar | drone
 			%<drone> ::= drone(row <x>) | drone(column <y>)
 			%<mine> ::= null | <position>
-			{Function Var}
+			
 			{TreatStream T MyInfo PlayersInfo}
-		[]fireItem(?ID ?KindFire)|T then Var in
+		[]fireItem(?ID ?KindFire)|T then 
 			%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
-			{Function Var}
+			
 			{TreatStream T MyInfo PlayersInfo}
-		[]fireMine(?ID ?Mine)|T then Var in
-			{Function Var}
+		[]fireMine(?ID ?Mine)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]isDead(?Answer)|T then Var in
-			{Function Var}
+		[]isDead(?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayMove(ID Direction)|T then Var in
-			{Function Var}
+		[]sayMove(ID Direction)|T then 
+			{System.show Direction}
 			{TreatStream T MyInfo PlayersInfo}
-		[]saySurface(ID)|T then Var in
-			{Function Var}
+		[]saySurface(ID)|T then
+			%everyone is getting the message
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayCharge(ID KindItem)|T then Var in
-			{Function Var}
+
+		[]sayCharge(ID KindItem)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayMinePlaced(ID)|T then Var in
-			{Function Var}
+		[]sayMinePlaced(ID)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayMissileExplode(ID Position ?Message)|T then Var in
-			{Function Var}
+		[]sayMissileExplode(ID Position ?Message)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayMineExplode(ID Position ?Message)|T then Var in
-			{Function Var}
+		[]sayMineExplode(ID Position ?Message)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayPassingDrone(Drone ?ID ?Answer)|T then Var in
-			{Function Var}
+		[]sayPassingDrone(Drone ?ID ?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayAnswerDrone(Drone ID Answer)|T then Var in
-			{Function Var}
+		[]sayAnswerDrone(Drone ID Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayPassingSonar(?ID ?Answer)|T then Var in
-			{Function Var}
-		[]sayAnswerSonar(ID Answer)|T then Var in
-			{Function Var}
+		[]sayPassingSonar(?ID ?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayDeath(ID)|T then Var in
-			{Function Var}
+		[]sayAnswerSonar(ID Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
-		[]sayDamageTaken(ID Damage LifeLeft)|T then Var in
-			{Function Var}
+		[]sayDeath(ID)|T then 
+			{TreatStream T MyInfo PlayersInfo}
+		[]sayDamageTaken(ID Damage LifeLeft)|T then 
 			{TreatStream T MyInfo PlayersInfo}
 		[] _|T then
 			{TreatStream T MyInfo PlayersInfo}
