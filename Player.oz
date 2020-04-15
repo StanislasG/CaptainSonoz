@@ -21,6 +21,20 @@ define
 	Move FindPath ChooseDirection
 	Dive Surface GetPosition
 	ChargeItem FireItem FireMine
+
+	% Say functions
+	SayMove 
+	SaySurface
+	SayCharge
+	SayMinePlaced
+	SayMineExplode
+	SayMissileExplode
+	SayPassingDrone
+	SayAnswerDrone
+	SayPassingSonar
+	SayAnswerSonar
+	SayDeath
+	SayDamageTaken
 in
 
 % ------------------------------------------
@@ -35,7 +49,7 @@ in
 
 
 % ------------------------------------------
-% Base functions
+% Basic functions
 % ------------------------------------------
 	% Return pt north/... of Pos
 	fun {North Pos} pt(x:Pos.x   y:Pos.y-1) end
@@ -56,6 +70,26 @@ in
 		end
 	end
 
+	% Get my position (MyInfo.path.1)
+	fun{GetPosition MyInfo}
+		case MyInfo.path 
+			of H|_ 			then H
+			[] pt(x:_ y:_)	then MyInfo.path
+		end
+	end
+
+	fun {Dive MyInfo}
+		myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:false) 
+	end
+
+	fun {Surface MyInfo} 
+		myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:true)	
+	end
+
+	% Computes the Manhattan distance between 2 positions
+	fun {ManhattanDistance Pos1 Pos2}
+		{Number.abs Pos1.x-Pos2.x} + {Number.abs Pos1.y-Pos2.y}
+	end
 % ------------------------------------------
 % Initialisation
 % ------------------------------------------
@@ -72,7 +106,7 @@ in
 			ID = MyInfo.id
 			Pos = pt(x:X y:Y)
 			% return updated info with position
-			myInfo(id:MyInfo.id path:Pos surface:true)
+			myInfo(id:MyInfo.id path:Pos|nil surface:true)
 		end
 	end
 
@@ -90,7 +124,6 @@ in
 		end
 		Port
 	end
-
 
 % ------------------------------------------
 % In-game management - Send Information
@@ -117,7 +150,7 @@ in
 		end 
 
 		% Return modified MyInfo
-		if(Pos == P) then
+		if(Direction == surface) then
 			{Surface MyInfo}
 		else 
 			myInfo(id:MyInfo.id path:Pos|MyInfo.path surface:false)
@@ -158,7 +191,6 @@ in
 		KindItem = null
 	end
 
-
 	proc{FireItem ID Item MyInfo}
 		ID = MyInfo.id
 		Item = null
@@ -168,19 +200,12 @@ in
 		ID = MyInfo.id
 		Mine = null
 	end
+
 % ------------------------------------------
 % In-game management - Receive Information
 % ------------------------------------------
-	fun{Dive MyInfo} 	myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:false) end
+	
 
-	fun{Surface MyInfo} myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:true)	 end
-
-	fun{GetPosition MyInfo}
-		case MyInfo.path 
-			of H|_ 			then H
-			[] pt(x:_ y:_)	then MyInfo.path
-		end
-	end
 % ------------------------------------------
 % TreatStream
 % ------------------------------------------
@@ -212,9 +237,11 @@ in
 			%<mine> ::= null | <position>
 			{FireItem ID KindFire MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
+
 		[]fireMine(?ID ?Mine)|T then 
 			{FireMine ID Mine MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
+
 		[]isDead(?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
 		[]sayMove(ID Direction)|T then 
@@ -231,8 +258,7 @@ in
 			{TreatStream T MyInfo PlayersInfo}
 		[]sayMissileExplode(ID Position ?Message)|T then
 			
-			%todo Manhattan distance
-			%todo sayDoamgeTaken
+			%todo sayDamgeTaken
 			%todo sayDeath
 			Message = null %no dommage taken
 			{TreatStream T MyInfo PlayersInfo}
