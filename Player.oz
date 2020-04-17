@@ -17,6 +17,7 @@ define
 	% Game start functions
 	StartPlayer
 	InitPosition
+	CreatePlayers
 
 	% In-game management functions
 	Move FindPath ChooseDirection
@@ -28,8 +29,8 @@ define
 	SaySurface
 	SayCharge
 	SayMinePlaced
-	SayMineExplode
 	SayMissileExplode
+	SayMineExplode
 	SayPassingDrone
 	SayAnswerDrone
 	SayPassingSonar
@@ -46,11 +47,12 @@ in
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
 %		- surface: true if at surface, false if submarin is underwater
 % 
-% player(id:___ lives:___ path:___ mines:___ mineStatus:___ missileStatus:___ sonarStatus:___ droneStatus:___)
-% 		- id: player's ID, id(id:___ color:___ name:___)
+% todo reflection about a list of all possible position instead of path (recompute with each new info about the player), could be usefull for integration of sonar and drone
+% player(lives:___ path:___ mines:___ charge(mine:___ missile:___ sonar:___ drone:___))
+% 		ID of the player is known by his position in list of player
 % 		- path: player's path, nil | (<direction>|nil)
 % 		- mines: mines of a player, nil | (<position>|mines)
-% 		- ...Status: from 1 to Input.Mine / Input.Sonar / ...
+% 		- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
 
 
 % ------------------------------------------
@@ -120,16 +122,29 @@ in
 		Stream
 		Port
 		MyInfo
+		PlayersInfo
 	in
 		% MyInfo will be stored by passing it as argument in TreatStream
 		MyInfo = myInfo(id:id(id:ID color:Color name:'PlayerNameTest') path:nil surface:true)
+		PlayersInfo = {CreatePlayers}
 		{NewPort Stream Port}
 		thread
-			{TreatStream Stream MyInfo nil} % TODO : player name ?
+			{TreatStream Stream MyInfo PlayersInfo} % TODO : player name ?
 		end
 		Port
 	end
 
+	fun{CreatePlayers}
+		fun{CreatePlayer ID}
+			if(ID>Input.nbPlayer) 
+				then nil 
+			else
+				player(lives:Input.maxDamage path:nil mines:nil charge(mine:0 missile:0 sonar:0 drone:0))|{CreatePlayer ID+1}
+			end
+		end
+	in
+		{CreatePlayer 1} %first ID is one
+	end
 % ------------------------------------------
 % In-game management - Send Information
 % ------------------------------------------
@@ -209,7 +224,43 @@ in
 % ------------------------------------------
 % In-game management - Receive Information
 % ------------------------------------------
-	
+	proc{SayMove ID Direction PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SaySurface ID PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayCharge ID KindItem PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayMinePlaced ID PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayMissileExplode ID Pos ?Message PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayMineExplode ID Pos ?Message PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayPassingDrone Drone ?ID ?Answer}
+		{System.show iAmHere}
+	end
+	proc{SayAnswerDrone Drone ID Answer PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayPassingSonar ?ID ?Answer}
+		{System.show iAmHere}
+	end
+	proc{SayAnswerSonar ID Answer PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayDeath ID PlayersInfo}
+		{System.show iAmHere}
+	end
+	proc{SayDamageTaken ID Damage LifeLeft PlayersInfo}
+		{System.show iAmHere}
+	end
+
 
 % ------------------------------------------
 % TreatStream
