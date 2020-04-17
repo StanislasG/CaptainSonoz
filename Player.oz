@@ -11,6 +11,8 @@ define
 
 	% Base functions
 	North South East West
+	NewPosition NewPositionList
+	ValidPositions
 	AccessiblePosition
 	ManhattanDistance
 	
@@ -18,6 +20,7 @@ define
 	StartPlayer
 	InitPosition
 	CreatePlayers
+	GeneratePositions
 
 	% In-game management functions
 	Move FindPath ChooseDirection
@@ -25,6 +28,7 @@ define
 	ChargeItem FireItem FireMine
 
 	% Say functions
+	PlayerModification
 	SayMove 
 	SaySurface
 	SayCharge
@@ -42,15 +46,15 @@ in
 % ------------------------------------------
 % Structure
 % ------------------------------------------
-% myInfo(id:___ path:___ surface:__)
+% myInfo(id:___ path:___ surface:___)
 % 		- id: my ID, id(id:___ color:___ name:___)
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
 %		- surface: true if at surface, false if submarin is underwater
 % 
 % todo reflection about a list of all possible position instead of path (recompute with each new info about the player), could be usefull for integration of sonar and drone
-% player(lives:___ path:___ mines:___ charge(mine:___ missile:___ sonar:___ drone:___))
-% 		ID of the player is known by his position in list of player
-% 		- path: player's path, nil | (<direction>|nil)
+% player(id:___ lives:___ possibilities:___ mines:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
+% 		- id: to match ID sent by main
+% 		- possibilities: list of possible points for player's position
 % 		- mines: mines of a player, nil | (<position>|mines)
 % 		- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
 
@@ -59,10 +63,38 @@ in
 % Basic functions
 % ------------------------------------------
 	% Return pt north/... of Pos
-	fun {North Pos} pt(x:Pos.x   y:Pos.y-1) end
-	fun {South Pos} pt(x:Pos.x   y:Pos.y+1) end
-	fun {East  Pos} pt(x:Pos.x+1 y:Pos.y  ) end
-	fun {West  Pos} pt(x:Pos.x-1 y:Pos.y  ) end
+	fun {North Pos} pt(x:Pos.x-1 y:Pos.y  ) end
+	fun {South Pos} pt(x:Pos.x+1 y:Pos.y  ) end
+	fun {East  Pos} pt(x:Pos.x   y:Pos.y+1) end
+	fun {West  Pos} pt(x:Pos.x   y:Pos.y-1) end
+	
+	% Returns the position North/South/... of Pos 
+	fun {NewPosition Pos Direction}
+		case Direction 
+		of north then {North Pos}
+		[] south then {South Pos}
+		[] east  then {East  Pos}
+		[] west  then {West  Pos}
+		end
+	end
+
+	% Returns the new positions for a whole list
+	fun {NewPositionList Pos Direction}
+		case Pos of nil then nil
+		[] H|T then {NewPosition H Direction} | {NewPositionList T Direction}
+		end
+	end
+
+	% Returns "Positions" without the non-accessible positions
+	fun {ValidPositions Positions}
+		case Positions
+		of nil then nil
+		[] H|T then 
+			if {AccessiblePosition H} == 0 then {ValidPositions T}
+			else H|{ValidPositions T}
+			end
+		end
+	end
 
 	% Check if accessible position (not outside of bounds and not an island)
 	fun {AccessiblePosition Pos}
@@ -74,6 +106,27 @@ in
 			else 1
 			end
 		[] _ then nil
+		end
+	end
+
+	% Computes the Manhattan distance between 2 positions
+	fun {ManhattanDistance Pos1 Pos2}
+		{Number.abs Pos1.x-Pos2.x} + {Number.abs Pos1.y-Pos2.y}
+	end
+
+	% Generates a list of all positions on the map
+	fun {GeneratePositions}
+		local 
+			fun {GeneratePositionsRec X Y}
+				if (Y == Input.nColumn) then 
+					if (X == Input.nRow) then pt(x:X y:Y)|nil
+					else pt(x:X y:Y)|{GeneratePositionsRec X+1 1}
+					end
+				else pt(x:X y:Y)|{GeneratePositionsRec X Y+1}
+				end
+			end
+		in
+			{GeneratePositionsRec 1 1}
 		end
 	end
 
@@ -91,11 +144,6 @@ in
 
 	fun {Surface MyInfo} 
 		myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:true)	
-	end
-
-	% Computes the Manhattan distance between 2 positions
-	fun {ManhattanDistance Pos1 Pos2}
-		{Number.abs Pos1.x-Pos2.x} + {Number.abs Pos1.y-Pos2.y}
 	end
 % ------------------------------------------
 % Initialisation
@@ -139,7 +187,7 @@ in
 			if(ID>Input.nbPlayer) 
 				then nil 
 			else
-				player(lives:Input.maxDamage path:nil mines:nil charge(mine:0 missile:0 sonar:0 drone:0))|{CreatePlayer ID+1}
+				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} mines:nil charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreatePlayer ID+1}
 			end
 		end
 	in
@@ -148,7 +196,7 @@ in
 % ------------------------------------------
 % In-game management - Send Information
 % ------------------------------------------
-	% Moving
+	% Moving randomly
 	fun {Move ID Pos Direction MyInfo}
 		P Possib
 	in		
@@ -224,43 +272,74 @@ in
 % ------------------------------------------
 % In-game management - Receive Information
 % ------------------------------------------
-	proc{SayMove ID Direction PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SaySurface ID PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayCharge ID KindItem PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayMinePlaced ID PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayMissileExplode ID Pos ?Message PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayMineExplode ID Pos ?Message PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayPassingDrone Drone ?ID ?Answer}
-		{System.show iAmHere}
-	end
-	proc{SayAnswerDrone Drone ID Answer PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayPassingSonar ?ID ?Answer}
-		{System.show iAmHere}
-	end
-	proc{SayAnswerSonar ID Answer PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayDeath ID PlayersInfo}
-		{System.show iAmHere}
-	end
-	proc{SayDamageTaken ID Damage LifeLeft PlayersInfo}
-		{System.show iAmHere}
+	% Apply "Fun" to the right player
+	% Args is a record where are only stored the useful arguments
+	% 	For example : arguments(direction:north) for SayMove
+	fun {PlayerModification WantedID PlayersInfo Fun Args}
+		case PlayersInfo
+		of nil then nil
+		[] player(id:ID lives:_ possibilities:_ mines:_ charge:_)|Next then
+			if (ID == WantedID) then
+				{Fun Args PlayersInfo.1}|Next
+			else
+				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
+			end
+		end
 	end
 
+	% Moving
+	% Args: arguments(direction:___)
+	fun{SayMove Args Player}
+		local 
+			NewPossibilities = {ValidPositions {NewPositionList Player.possibilities Args.direction}}
+		in
+			player(id:Player.id lives:Player.lives possibilities:NewPossibilities mines:Player.mines charge:Player.charge)
+		end
+	end
+
+	fun{SaySurface ID Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayCharge ID KindItem Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayMinePlaced ID Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayMissileExplode ID Pos ?Message Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayMineExplode ID Pos ?Message Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayPassingDrone Drone ?ID ?Answer}
+		{System.show iAmHere}
+	end
+	
+	fun{SayAnswerDrone Drone ID Answer Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayPassingSonar ?ID ?Answer}
+		{System.show iAmHere}
+	end
+	
+	fun{SayAnswerSonar ID Answer Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayDeath ID Player}
+		{System.show iAmHere}
+	end
+	
+	fun{SayDamageTaken ID Damage LifeLeft Player}
+		{System.show iAmHere}
+	end
 
 % ------------------------------------------
 % TreatStream
@@ -300,6 +379,7 @@ in
 
 		[]isDead(?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayMove(ID Direction)|T then 
 			%everyone is getting the message
 			{TreatStream T MyInfo PlayersInfo}
@@ -310,28 +390,38 @@ in
 
 		[]sayCharge(ID KindItem)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayMinePlaced(ID)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayMissileExplode(ID Position ?Message)|T then
 			
 			%todo sayDamgeTaken
 			%todo sayDeath
 			Message = null %no dommage taken
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayMineExplode(ID Position ?Message)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayPassingDrone(Drone ?ID ?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayAnswerDrone(Drone ID Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayPassingSonar(?ID ?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayAnswerSonar(ID Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayDeath(ID)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[]sayDamageTaken(ID Damage LifeLeft)|T then 
 			{TreatStream T MyInfo PlayersInfo}
+		
 		[] _|T then
 			{TreatStream T MyInfo PlayersInfo}
 		end
