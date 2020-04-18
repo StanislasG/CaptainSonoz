@@ -15,6 +15,7 @@ define
 	ValidPositions
 	AccessiblePosition
 	ManhattanDistance
+	PrettyPrintMap
 	
 	% Game start functions
 	StartPlayer
@@ -34,7 +35,7 @@ define
 	SayCharge
 	SayMinePlaced
 	SayMissileExplodeMyInfo SayMissileExplodeMissileStatus
-	SayMineExplode
+	SayMineExplodeMyInfo
 	SayPassingDrone
 	SayAnswerDrone
 	SayPassingSonar
@@ -44,7 +45,17 @@ define
 in
 
 % ------------------------------------------
-% Structure
+% Structure code
+% ------------------------------------------
+%	Structure variables
+%	Basic functions
+%	Initialisation
+%	In-game management - Send Information
+%	In-game management - Receive Information
+%	TreatStream
+
+% ------------------------------------------
+% Structure variables
 % ------------------------------------------
 % myInfo(id:___ lives:___ path:___ surface:___)
 % 		- id: my ID, id(id:___ color:___ name:___)
@@ -52,7 +63,6 @@ in
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
 %			- surface: true if at surface, false if submarin is underwater
 % 
-% todo reflection about a list of all possible position instead of path (recompute with each new info about the player), could be usefull for integration of sonar and drone
 % player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
 % 		- id: to match ID sent by main
 % 		- lives: number of lives of the submarine
@@ -139,6 +149,32 @@ in
 	fun {Surface MyInfo} 
 		myInfo(id:MyInfo.id lives:MyInfo.lives path:MyInfo.path.1|nil surface:true)	
 	end
+
+	%PoinList = pt(x: y:_)|pt|...|nil
+	%it works if nothing else is printing to the terminal at the same time
+	%with his actual config it take a list of points and add it on the Input map (can be used for visualing the possible positions of the players)
+	proc{PrettyPrintMap PointList}
+		%change one pt to Char in a given map
+		fun{ChangeMap Map X Y Char}
+			fun{ChangeRow RMap RX}
+				if(RX==1) then {ChangeCol RMap.1 Y}|RMap.2
+				else RMap.1|{ChangeRow RMap.2 RX-1} end
+			end
+			fun{ChangeCol CMap CY}
+				if(CY==1) then Char|CMap.2
+				else CMap.1|{ChangeCol CMap.2 CY-1} end
+			end
+		in {ChangeRow Map X} end
+		fun{TempMap Map PointList Char}
+			case PointList of pt(x:X y:Y)|T then {TempMap {ChangeMap Map X Y Char} T Char}
+			else Map end
+		end
+		proc{PrintMap Map}
+			{System.show {List.toTuple '_' Map.1}}
+			if(Map.2==nil)==false then {PrintMap Map.2} end
+		end
+	in {System.show '----'} {PrintMap {TempMap Input.map PointList 9}} {System.show '----'}	end
+
 % ------------------------------------------
 % Initialisation
 % ------------------------------------------
@@ -254,7 +290,8 @@ in
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	%todo need to charge and bind KindItem if produced
-	%check when item is produced: Input.mine, Input.missile, Input.sonar, Input.drone 
+	%check when item is produced: Input.mine, Input.missile, Input.sonar, Input.drone
+
 	proc{ChargeItem ID KindItem MyInfo}
 		%<item> ::= null | mine | missile | sonar | drone
 		ID = MyInfo.id
@@ -277,11 +314,18 @@ in
 	% Apply "Fun" to the right player
 	% Args is a record where are only stored the useful arguments
 	% 	For example : arguments(direction:north) for SayMove
+
+	% Information in varialbes
+	% wantedID = id(color:_ id:_ name:_)
+	% PlayersInfo = player(charge:charge(drone:_ mine:_ missile:_ sonar:_) id:_ lives:_ possibilities:_) | player
+	% Fun = _
+	% Args = arguments(_)
 	fun {PlayerModification WantedID PlayersInfo Fun Args}
 		case PlayersInfo
 		of nil then nil
 		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == WantedID) then
+			if (ID == WantedID.id) then
+				
 				{Fun Args PlayersInfo.1}|Next
 			else
 				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
@@ -289,7 +333,7 @@ in
 		end
 	end
 
-	% Moving
+	% Move broadcasted, try to locate all players based only by elemination of possibilities 
 	% Args: arguments(direction:___)
 	fun{SayMove Args Player}
 		NewPossibilities
@@ -299,6 +343,7 @@ in
 		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
 		% Calculate
 		NewPossibilities = {ValidPositions {NewPositionList PPoss Args.direction}}
+		%{PrettyPrintMap NewPossibilities}
 		% Return
 		player(id:PID lives:PLives possibilities:NewPossibilities surface:false charge:PCharge)
 	end
@@ -353,9 +398,9 @@ in
 	in
 		% Compute damage taken
 		case {ManhattanDistance MyInfo.path.1 Pos}
-		of 1 then DamageTaken = 1
-		[] 0 then DamageTaken = 2
-		else 			DamageTaken = 0
+			of 1 then	DamageTaken = 1
+			[] 0 then	DamageTaken = 2
+			else 		DamageTaken = 0
 		end
 		% Send message
 		if DamageTaken == 0 then Message = null
@@ -363,7 +408,7 @@ in
 		else Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
 		end
 		% Return edited MyInfo
-		myInfo(id:MyInfo.id lives:MyInfo.lives-DamageTaken path:MyInfo.path surface:MyInfo.surface)
+		myInfo(id:MyInfo.id lives:(MyInfo.lives-DamageTaken) path:MyInfo.path surface:MyInfo.surface)
 	end
 
 	% On missile explosion, edit missile charge status
@@ -380,12 +425,30 @@ in
 		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
 	end
 	
-	fun{SayMineExplode ID Pos ?Message Player}
-		{System.show iAmHere}
+	fun{SayMineExplodeMyInfo MyInfo Pos Message}
+		DamageTaken
+	in
+		% Compute damage taken
+		case {ManhattanDistance MyInfo.path.1 Pos}
+			of 1 then	DamageTaken = 1
+			[] 0 then	DamageTaken = 2
+			else 		DamageTaken = 0
+		end
+		% Send message
+		if DamageTaken == 0 then Message = null
+		elseif MyInfo.lives =< DamageTaken then Message = sayDeath(MyInfo.id)
+		else Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
+		end
+		% Return edited MyInfo
+		myInfo(id:MyInfo.id lives:(MyInfo.lives-DamageTaken) path:MyInfo.path surface:MyInfo.surface)
 	end
 	
-	fun{SayPassingDrone Drone ?ID ?Answer}
-		{System.show iAmHere}
+	proc{SayPassingDrone Drone ?ID ?Answer MyInfo}
+		ID = MyInfo.id
+		case Drone
+			of drone(row X) 	then Answer=(MyInfo.path.1.x == X)
+			[] drone(column Y)	then Answer=(MyInfo.path.1.y == Y)
+		end
 	end
 	
 	fun{SayAnswerDrone Drone ID Answer Player}
@@ -422,8 +485,6 @@ in
 		
 		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
 			NewMyInfo = {Move ID Pos Direction MyInfo}
-			%todo case surface saySurface
-			%todo sayMove to main
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]dive|T then
@@ -434,9 +495,6 @@ in
 			{TreatStream T MyInfo PlayersInfo}
 
 		[]fireItem(?ID ?KindFire)|T then 
-			%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
-			%<drone> ::= drone(row <x>) | drone(column <y>)
-			%<mine> ::= null | <position>
 			{FireItem ID KindFire MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
 
@@ -465,25 +523,32 @@ in
 			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
 			% edit PlayersInfo's lives will be done with sayDamageTaken
 		
+		%todo, reflection: do we add the possible position of the mine, because actually we do not?
 		[]sayMineExplode(ID Position ?Message)|T then 
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position Message} PlayersInfo}
 		
 		[]sayPassingDrone(Drone ?ID ?Answer)|T then 
+			{SayPassingDrone Drone ID Answer MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayAnswerDrone(Drone ID Answer)|T then 
+			%todo remove possibilities
 			{TreatStream T MyInfo PlayersInfo}
 		
+		%todo define strat for infomation that we give, count number that maximize unknown
 		[]sayPassingSonar(?ID ?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
 		
-		[]sayAnswerSonar(ID Answer)|T then 
+		[]sayAnswerSonar(ID Answer)|T then
+			%todo remove possibilities
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayDeath(ID)|T then 
+			%todo modify PlayersInfo with PlayerModification
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayDamageTaken(ID Damage LifeLeft)|T then 
+			%todo modify PlayersInfo with PlayerModification
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[] _|T then

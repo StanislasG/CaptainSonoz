@@ -43,7 +43,7 @@ in
 		Desc=grid(handle:Grid height:500 width:500)
 		DescScore=grid(handle:GridScore height:100 width:500)
 		Window={QTk.build td(Toolbar Desc DescScore)}
-  
+
 		{Window show}
 
 		% configure rows and set headers
@@ -71,7 +71,7 @@ in
 
 %%%%% Squares of water and island
 	Squares = square(0:label(text:"" width:1 height:1 bg:c(102 102 255))
-			 1:label(text:"" borderwidth:5 relief:raised width:1 height:1 bg:c(153 76 0))
+			1:label(text:"" borderwidth:5 relief:raised width:1 height:1 bg:c(153 76 0))
 			)
 
 %%%%% Labels for rows and columns
@@ -132,7 +132,7 @@ in
 			guiPlayer(id:ID score:HandleScore submarine:Handle mines:Mine path:NewPath|Path)
 		end
 	end
-  
+
 	fun{DrawMine Position}
 		fun{$ Grid State}
 			ID HandleScore Handle Mine Path LabelMine HandleMine X Y
@@ -190,7 +190,7 @@ in
 	in
 		guiPlayer(id:ID score:HandleScore submarine:Handle mines:Mine path:Path) = State
 		for H in Path.2 do
-	 {RemoveItem Grid H}
+	{RemoveItem Grid H}
 		end
 		guiPlayer(id:ID score:HandleScore submarine:Handle mines:Mine path:Path.1|nil)
 	end
@@ -201,7 +201,7 @@ in
 			in
 			guiPlayer(id:_ score:HandleScore submarine:_ mines:_ path:_) = State
 			{HandleScore set(Life)}
-	 		State
+			State
 		end
 	end
 
@@ -225,10 +225,10 @@ in
 			{HandleScore set(0)}
 			if (ID == WantedID) then
 				for H in P do
-			 		{RemoveItem Grid H}
+					{RemoveItem Grid H}
 				end
 				for H in M do
-			 		{RemoveItem Grid H.1}
+					{RemoveItem Grid H.1}
 				end
 				{RemoveItem Grid Handle}
 				Next
