@@ -33,7 +33,7 @@ define
 	SaySurface
 	SayCharge
 	SayMinePlaced
-	SayMissileExplode
+	SayMissileExplodeMyInfo SayMissileExplodeMissileStatus
 	SayMineExplode
 	SayPassingDrone
 	SayAnswerDrone
@@ -46,16 +46,18 @@ in
 % ------------------------------------------
 % Structure
 % ------------------------------------------
-% myInfo(id:___ path:___ surface:___)
+% myInfo(id:___ lives:___ path:___ surface:___)
 % 		- id: my ID, id(id:___ color:___ name:___)
+% 		- lives: the number of lives left
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
-%		- surface: true if at surface, false if submarin is underwater
+%			- surface: true if at surface, false if submarin is underwater
 % 
 % todo reflection about a list of all possible position instead of path (recompute with each new info about the player), could be usefull for integration of sonar and drone
-% player(id:___ lives:___ possibilities:___ mines:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
+% player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
 % 		- id: to match ID sent by main
+% 		- lives: number of lives of the submarine
 % 		- possibilities: list of possible points for player's position
-% 		- mines: mines of a player, nil | (<position>|mines)
+% 		- surface: true or false
 % 		- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
 
 
@@ -130,20 +132,12 @@ in
 		end
 	end
 
-	% Get my position (MyInfo.path.1)
-	fun{GetPosition MyInfo}
-		case MyInfo.path 
-			of H|_ 			then H
-			[] pt(x:_ y:_)	then MyInfo.path
-		end
-	end
-
 	fun {Dive MyInfo}
-		myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:false) 
+		myInfo(id:MyInfo.id lives:MyInfo.lives path:MyInfo.path.1|nil surface:false) 
 	end
 
 	fun {Surface MyInfo} 
-		myInfo(id:MyInfo.id path:{GetPosition MyInfo}|nil surface:true)	
+		myInfo(id:MyInfo.id lives:MyInfo.lives path:MyInfo.path.1|nil surface:true)	
 	end
 % ------------------------------------------
 % Initialisation
@@ -161,7 +155,7 @@ in
 			ID = MyInfo.id
 			Pos = pt(x:X y:Y)
 			% return updated info with position
-			myInfo(id:MyInfo.id path:Pos|nil surface:true)
+			myInfo(id:MyInfo.id lives:MyInfo.lives path:Pos|nil surface:true)
 		end
 	end
 
@@ -173,7 +167,7 @@ in
 		PlayersInfo
 	in
 		% MyInfo will be stored by passing it as argument in TreatStream
-		MyInfo = myInfo(id:id(id:ID color:Color name:'PlayerNameTest') path:nil surface:true)
+		MyInfo = myInfo(id:id(id:ID color:Color name:'PlayerNameTest') lives:Input.maxDamage path:nil surface:true)
 		PlayersInfo = {CreatePlayers}
 		{NewPort Stream Port}
 		thread
@@ -187,7 +181,7 @@ in
 			if(ID>Input.nbPlayer) 
 				then nil 
 			else
-				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} mines:nil charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreatePlayer ID+1}
+				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} surface:true charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreatePlayer ID+1}
 			end
 		end
 	in
@@ -198,16 +192,20 @@ in
 % ------------------------------------------
 	% Moving randomly
 	fun {Move ID Pos Direction MyInfo}
-		P Possib
+		P Possib N S E W
 	in		
 		% Calculate useful info
-		P = {GetPosition MyInfo}
+		P = MyInfo.path.1
+		
+		N = {AccessiblePosition {North P}}
+		S = {AccessiblePosition {South P}}
+		E = {AccessiblePosition {East  P}}
+		W = {AccessiblePosition {West  P}}
 
-		Possib = directions(north:{AccessiblePosition {North P}} east:{AccessiblePosition {East P}} south:{AccessiblePosition {South P}} west:{AccessiblePosition {West P}})
+		Possib = directions(north:N east:E south:S west:W)
 
 		% Assign values to unassigned var
 		Direction = {FindPath P MyInfo.path Possib}
-
 		ID = MyInfo.id
 		case Direction
 		of north   then Pos = {North P}
@@ -221,20 +219,24 @@ in
 		if(Direction == surface) then
 			{Surface MyInfo}
 		else 
-			myInfo(id:MyInfo.id path:Pos|MyInfo.path surface:false)
+			myInfo(id:MyInfo.id lives:MyInfo.lives path:Pos|MyInfo.path surface:false)
 		end
 	end
 
 	% Find a valid path
 	fun {FindPath Pos Path Possib}
-		if Possib == directions(north:0 east:0 south:0 west:0) 
+		N S E W 
+	in
+		directions(north:N east:E south:S west:W) = Possib
+
+		if N#S#E#W == 0#0#0#0
 			then surface
 		else
 			if Path == nil then {ChooseDirection Possib}
-			elseif Path.1 == {North Pos} then {FindPath Pos Path.2 directions(north:0            	east:Possib.east  south:Possib.south  west:Possib.west)}
-			elseif Path.1 == {South Pos} then {FindPath Pos Path.2 directions(north:Possib.north 	east:Possib.east  south:0             west:Possib.west)}
-			elseif Path.1 == {East  Pos} then {FindPath Pos Path.2 directions(north:Possib.north 	east:0            south:Possib.south  west:Possib.west)}
-			elseif Path.1 == {West  Pos} then {FindPath Pos Path.2 directions(north:Possib.north 	east:Possib.east  south:Possib.south  west:0          )}
+			elseif Path.1 == {North Pos} then {FindPath Pos Path.2 directions(north:0	east:E south:S west:W)}
+			elseif Path.1 == {East  Pos} then {FindPath Pos Path.2 directions(north:N	east:0 south:S west:W)}
+			elseif Path.1 == {South Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:0 west:W)}
+			elseif Path.1 == {West  Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:S west:0)}
 			else {FindPath Pos Path.2 Possib}
 			end
 		end
@@ -278,7 +280,7 @@ in
 	fun {PlayerModification WantedID PlayersInfo Fun Args}
 		case PlayersInfo
 		of nil then nil
-		[] player(id:ID lives:_ possibilities:_ mines:_ charge:_)|Next then
+		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
 			if (ID == WantedID) then
 				{Fun Args PlayersInfo.1}|Next
 			else
@@ -290,27 +292,92 @@ in
 	% Moving
 	% Args: arguments(direction:___)
 	fun{SayMove Args Player}
-		local 
-			NewPossibilities = {ValidPositions {NewPositionList Player.possibilities Args.direction}}
-		in
-			player(id:Player.id lives:Player.lives possibilities:NewPossibilities mines:Player.mines charge:Player.charge)
-		end
+		NewPossibilities
+		% Get information
+		PID PLives PPoss PSurf PCharge 
+	in
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		% Calculate
+		NewPossibilities = {ValidPositions {NewPositionList PPoss Args.direction}}
+		% Return
+		player(id:PID lives:PLives possibilities:NewPossibilities surface:false charge:PCharge)
 	end
 
-	fun{SaySurface ID Player}
-		{System.show iAmHere}
+	% Update Player.surface when player has surfaced
+	% Args: arguments() [no arguments]
+	fun{SaySurface Args Player}
+		% Get information
+		PID PLives PPoss PSurf PCharge 
+	in
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		% Return
+		player(id:PID lives:PLives possibilities:PPoss surface:true charge:PCharge)
 	end
 	
-	fun{SayCharge ID KindItem Player}
-		{System.show iAmHere}
+	% Updates Player's charge number on an item
+	% Args: arguments(itemKind)
+	fun{SayCharge Args Player}
+		NewCharge
+		% Get information
+		PID PLives PPoss PSurf PCharge 
+	in
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		% Calculate
+		case Args.itemKind
+		of mine    then NewCharge = charge(mine:PCharge.mine+1 missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone)
+		[] missile then NewCharge = charge(mine:PCharge.mine missile:PCharge.missile+1 sonar:PCharge.sonar drone:PCharge.drone)
+		[] sonar   then NewCharge = charge(mine:PCharge.mine missile:PCharge.missile sonar:PCharge.sonar+1 drone:PCharge.drone)
+		[] drone   then NewCharge = charge(mine:PCharge.mine missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone+1)
+		end
+		% Return
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
 	end
 	
-	fun{SayMinePlaced ID Player}
-		{System.show iAmHere}
+	% Update mine charge status when mine is placed
+	% Args: arguments() [no arguments]
+	fun{SayMinePlaced Args Player}
+		NewCharge
+		% Get information
+		PID PLives PPoss PSurf PCharge 
+	in
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		% Edit new charges status
+		NewCharge = charge(mine:0 missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone)
+		% Return
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
 	end
-	
-	fun{SayMissileExplode ID Pos ?Message Player}
-		{System.show iAmHere}
+
+	% On missile explosion, edit my info and send message back
+	fun{SayMissileExplodeMyInfo MyInfo Pos Message}
+		DamageTaken
+	in
+		% Compute damage taken
+		case {ManhattanDistance MyInfo.path.1 Pos}
+		of 1 then DamageTaken = 1
+		[] 0 then DamageTaken = 2
+		else 			DamageTaken = 0
+		end
+		% Send message
+		if DamageTaken == 0 then Message = null
+		elseif MyInfo.lives =< DamageTaken then Message = sayDeath(MyInfo.id)
+		else Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
+		end
+		% Return edited MyInfo
+		myInfo(id:MyInfo.id lives:MyInfo.lives-DamageTaken path:MyInfo.path surface:MyInfo.surface)
+	end
+
+	% On missile explosion, edit missile charge status
+	% Args: arguments() [no arguments]
+	fun{SayMissileExplodeMissileStatus Args Player}
+		NewCharge
+		% Get information
+		PID PLives PPoss PSurf PCharge 
+	in
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		% Edit new charges status
+		NewCharge = charge(mine:PCharge.mine missile:0 sonar:PCharge.sonar drone:PCharge.drone)
+		% Return
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
 	end
 	
 	fun{SayMineExplode ID Pos ?Message Player}
@@ -381,25 +448,22 @@ in
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayMove(ID Direction)|T then 
-			%everyone is getting the message
-			{TreatStream T MyInfo PlayersInfo}
-			
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayMove arguments(direction:Direction)}}
+		
 		[]saySurface(ID)|T then
-			%everyone is getting the message
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SaySurface arguments()}}
 
 		[]sayCharge(ID KindItem)|T then 
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayCharge arguments(itemKind:KindItem)}}
 		
 		[]sayMinePlaced(ID)|T then 
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayMinePlaced arguments()}}
 		
 		[]sayMissileExplode(ID Position ?Message)|T then
-			
-			%todo sayDamgeTaken
-			%todo sayDeath
-			Message = null %no dommage taken
-			{TreatStream T MyInfo PlayersInfo}
+			% edit MyInfo (lives) and send Message back
+			% edit specific player's info (charge.missile)
+			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
+			% edit PlayersInfo's lives will be done with sayDamageTaken
 		
 		[]sayMineExplode(ID Position ?Message)|T then 
 			{TreatStream T MyInfo PlayersInfo}
