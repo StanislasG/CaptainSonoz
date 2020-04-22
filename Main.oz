@@ -11,7 +11,7 @@ define
 	
 	ArrayReplace
 	NextPlayer
-	Broadcast
+	Broadcast BroadcastExclID
 	TurnByTurn
 
 	% VARIABLES
@@ -67,17 +67,28 @@ in
 %sayMove(ID Direction), saySurface(ID), sayCharge(ID KindItem), sayMinePlaced(ID), sayAnswerDrone(Drone ID Answer), sayAnswerSonar(ID Answer), sayDeath(ID), sayDamageTaken(ID Damage LifeLeft)
 	proc{Broadcast Message}
 		proc{MessageToPlayer Message CurrentP}
-
+			{System.show broadcast(CurrentP Message)}
 			if(CurrentP < Input.nbPlayer) then
 				{Send {List.nth Players CurrentP} Message}
 				{MessageToPlayer Message {NextPlayer CurrentP}}
-			else
+			else {Send {List.nth Players CurrentP} Message} end
+		end
+	in {MessageToPlayer Message 1}  end
+
+	proc{BroadcastExclID Message ID}
+		proc{MessageToPlayer Message CurrentP}
+			if(ID.id == CurrentP) then
+				{MessageToPlayer Message CurrentP+1}
+			elseif(CurrentP < Input.nbPlayer) then
+				{System.show broadcastExclID(CurrentP Message)}
 				{Send {List.nth Players CurrentP} Message}
+				{MessageToPlayer Message CurrentP+1}
+			elseif(CurrentP == Input.nbPlayer) then
+				{System.show broadcastExclID(CurrentP Message)}
+				{Send {List.nth Players CurrentP} Message} 
 			end
 		end
-	in
-		{MessageToPlayer Message 1} %ID of first player is one
-	end
+	in {MessageToPlayer Message 1}  end
 
 	proc{TurnByTurn CurrentP TimeAtSurf}
 		%TimeAtSurf array with all player and nb of turns their waited
@@ -128,14 +139,14 @@ in
 							[] mine(PosMine) then 	
 								{Broadcast sayMinePlaced(IDfire)}
 								{Send GuiPort putMine(IDfire PosMine)}
-							[] missile(PosMiss)	then %todo sayDommageTaken and sayDeath for mine and missile
+							[] missile(PosMiss)	then Message in %todo sayDommageTaken and sayDeath for mine and missile
 								{Broadcast sayMissileExplode(ID PosMiss ?Message)}
-							[] sonar then %todo reflection broadcast to everyone, also the one that send the sonar?
-								{Broadcast sayPassingSonar(?ID ?Answer)}
-								{Broadcast sayAnswerSonar(ID Answer)}
-							[] drone(Line) then %todo reflection broadcast to everyone, also the one that send the drone?
-								{Broadcast sayPassingDrone(Drone ?ID ?Answer)}
-								{Broadcast sayAnswerDrone(Drone ID Answer)}
+							[] sonar then SID Answer in %todo reflection broadcast to everyone, also the one that send the sonar?
+								{BroadcastExclID sayPassingSonar(?SID ?Answer) ID}
+								{Broadcast sayAnswerSonar(SID Answer)}
+							[] drone(RowCol Number) then DID Answer in%todo reflection broadcast to everyone, also the one that send the drone?
+								{BroadcastExclID sayPassingDrone(drone(RowCol Number) ?DID ?Answer) ID} %todo correct errors
+								{Broadcast sayAnswerDrone(drone(RowCol Number) DID Answer)}
 						end
 					end
 
@@ -146,7 +157,8 @@ in
 						case Mine 
 							of null 		then skip
 							[] pt(x:_ y:_) 	then Message in 
-								{Broadcast sayMineExplode(IDmine Mine ?Message)}
+								{BroadcastExclID sayMineExplode(IDmine Mine ?Message) IDmine}
+								%{Broadcast sayMineExplode(IDmine Mine ?Message)}
 								{Send GuiPort removeMine(IDmine Mine)} %todo sayDommageTaken and sayDeath for mine and missile
 						end
 					end

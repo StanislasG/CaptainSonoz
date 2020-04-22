@@ -15,6 +15,8 @@ define
 	ValidPositions
 	AccessiblePosition
 	ManhattanDistance
+	ListPtAnd ListPtExcl
+	GenerateRow GenerateColumn
 	PrettyPrintMap
 	
 	% Game start functions
@@ -150,6 +152,51 @@ in
 		myInfo(id:MyInfo.id lives:MyInfo.lives path:MyInfo.path.1|nil surface:true)	
 	end
 
+	% Return a list where elements must in List1 and List2
+	fun{ListPtAnd List1 List2} %answer:true, 
+		if(List1==nil) 		then nil
+		elseif(List2==nil)	then nil
+		else R1 R2 C1 C2 T1 T2 in
+			pt(x:R1 y:C1)|T1=List1    
+			pt(x:R2 y:C2)|T2=List2
+			if(C1>C2) 		then {ListPtAnd List1 T2} %List2 is behind List1
+			elseif(C1<C2)	then {ListPtAnd T1 List2}
+			elseif(R1>R2)	then {ListPtAnd List1 T2}
+			elseif(R1<R2)	then {ListPtAnd T1 List2}
+			else pt(x:R1 y:C1)|{ListPtAnd T1 T2} end
+		end
+	end
+	% Return the list ListRef without the elements ListExcl
+	fun{ListPtExcl ListRef ListExcl} %answer:false
+		if(ListRef==nil) 		then nil
+		elseif(ListExcl==nil)	then ListRef
+		else R1 R2 C1 C2 T1 T2 in
+			pt(x:R1 y:C1)|T1=ListRef    
+			pt(x:R2 y:C2)|T2=ListExcl
+			if(C1>C2) 		then {ListPtAnd ListRef T2} %ListExcl is behind ListRef
+			elseif(C1<C2)	then pt(x:R1 y:C1)|{ListPtAnd T1 ListExcl}
+			elseif(R1>R2)	then {ListPtAnd ListRef T2}
+			elseif(R1<R2)	then pt(x:R1 y:C1)|{ListPtAnd T1 ListExcl}
+			else {ListPtAnd T1 T2} end %same point, must be excl
+		end
+	end
+
+	% Generate a list of points with the right rownumber
+	fun{GenerateRow RowNumber}
+		fun{GenerateRowCol ColumnNumber}
+			if (ColumnNumber==Input.nColumn) then nil 
+			else pt(x:RowNumber y:ColumnNumber) | {GenerateRowCol ColumnNumber+1} end
+		end
+	in {GenerateRowCol 1} end
+
+	% Generate a list of points with the right rownumber
+	fun{GenerateColumn ColumnNumber}
+		fun{GeneratColRow RowNumber}
+			if (RowNumber==Input.nRow) then nil 
+			else pt(x:RowNumber y:ColumnNumber) | {GeneratColRow RowNumber+1} end
+		end
+	in {GeneratColRow 1} end
+
 	%PoinList = pt(x: y:_)|pt|...|nil
 	%it works if nothing else is printing to the terminal at the same time
 	%with his actual config it take a list of points and add it on the Input map (can be used for visualing the possible positions of the players)
@@ -171,7 +218,7 @@ in
 		end
 		proc{PrintMap Map}
 			{System.show {List.toTuple '_' Map.1}}
-			if(Map.2==nil)==false then {PrintMap Map.2} end
+			if(Map.2\=nil) then {PrintMap Map.2} end
 		end
 	in {System.show '----'} {PrintMap {TempMap Input.map PointList 9}} {System.show '----'}	end
 
@@ -203,7 +250,7 @@ in
 		PlayersInfo
 	in
 		% MyInfo will be stored by passing it as argument in TreatStream
-		MyInfo = myInfo(id:id(id:ID color:Color name:'PlayerNameTest') lives:Input.maxDamage path:nil surface:true)
+		MyInfo = myInfo(id:id(id:ID color:Color name:player) lives:Input.maxDamage path:nil surface:true)
 		PlayersInfo = {CreatePlayers}
 		{NewPort Stream Port}
 		thread
@@ -449,10 +496,32 @@ in
 			of drone(row X) 	then Answer=(MyInfo.path.1.x == X)
 			[] drone(column Y)	then Answer=(MyInfo.path.1.y == Y)
 		end
+		{System.show sayPassingDrone(drone:Drone id:ID answer:Answer)}
 	end
 	
-	fun{SayAnswerDrone Drone ID Answer Player}
-		{System.show iAmHere}
+	%Args = arguments(drone:Drone id:ID answer:Answer)
+	%drone(row <x>) | drone(column <y>)
+	fun{SayAnswerDrone Args Player} %PID=DID
+		NewPossibilities
+		Drone DID Answer
+		PID PLives PPoss PSurf PCharge
+	in
+		arguments(drone:Drone id:DID answer:Answer) = Args
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		
+		case Drone 
+		of drone(row X) then
+			if(Answer) then NewPossibilities = {ValidPositions {ListPtAnd PPoss {GenerateRow X}}}
+			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateRow X}}} end
+		[]drone(column Y) then
+			if(Answer) then NewPossibilities = {ValidPositions {ListPtAnd PPoss {GenerateColumn Y}}}
+			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateColumn Y}}} end
+		end
+
+		{System.show newPosDrone(NewPosition)}
+
+		% Return
+		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
 	end
 	
 	fun{SayPassingSonar ?ID ?Answer}
@@ -525,7 +594,7 @@ in
 		
 		%todo, reflection: do we add the possible position of the mine, because actually we do not?
 		[]sayMineExplode(ID Position ?Message)|T then 
-			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position Message} PlayersInfo}
+			{TreatStream T {SayMineExplodeMyInfo MyInfo Position Message} PlayersInfo}
 		
 		[]sayPassingDrone(Drone ?ID ?Answer)|T then 
 			{SayPassingDrone Drone ID Answer MyInfo}
@@ -533,7 +602,7 @@ in
 		
 		[]sayAnswerDrone(Drone ID Answer)|T then 
 			%todo remove possibilities
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerDrone arguments(drone:Drone id:ID answer:Answer)}}
 		
 		%todo define strat for infomation that we give, count number that maximize unknown
 		[]sayPassingSonar(?ID ?Answer)|T then 
