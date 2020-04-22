@@ -182,11 +182,9 @@ in
 	% Ask every player to set up (choose its initial point, they all are at the surface at this time)
 	{InitPlayers Players}
 
-	%4. When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input le)
-	if (Input.isTurnByTurn) then
-		{TurnByTurn 1 0|0|nil}
-	else
-		{System.show isTurnByTurn_is_not_active}
+	% When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input)
+	if (Input.isTurnByTurn) then {TurnByTurn 1 0|0|nil}
+	else {System.show isTurnByTurn_is_not_active}
 	end
 	{System.show program_end}
 end

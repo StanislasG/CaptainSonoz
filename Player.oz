@@ -39,7 +39,7 @@ define
 	SayMissileExplodeMyInfo SayMissileExplodeMissileStatus
 	SayMineExplodeMyInfo
 	SayPassingDrone
-	SayAnswerDrone
+	SayAnswerDrone SonarPossibilities
 	SayPassingSonar
 	SayAnswerSonar
 	SayDeath
@@ -371,8 +371,7 @@ in
 		case PlayersInfo
 		of nil then nil
 		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == WantedID.id) then
-				
+			if (ID == WantedID) then
 				{Fun Args PlayersInfo.1}|Next
 			else
 				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
@@ -472,6 +471,7 @@ in
 		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
 	end
 	
+	% Edit MyInfo on mine explosion
 	fun{SayMineExplodeMyInfo MyInfo Pos Message}
 		DamageTaken
 	in
@@ -490,6 +490,7 @@ in
 		myInfo(id:MyInfo.id lives:(MyInfo.lives-DamageTaken) path:MyInfo.path surface:MyInfo.surface)
 	end
 	
+	% Passing drone
 	proc{SayPassingDrone Drone ?ID ?Answer MyInfo}
 		ID = MyInfo.id
 		case Drone
@@ -502,6 +503,7 @@ in
 	%Args = arguments(drone:Drone id:ID answer:Answer)
 	%drone(row <x>) | drone(column <y>)
 	fun{SayAnswerDrone Args Player} %PID=DID
+		% Get information
 		NewPossibilities
 		Drone DID Answer
 		PID PLives PPoss PSurf PCharge
@@ -509,13 +511,16 @@ in
 		arguments(drone:Drone id:DID answer:Answer) = Args
 		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
 		
+		% Calculate
 		case Drone 
 		of drone(row X) then
 			if(Answer) then NewPossibilities = {ValidPositions {ListPtAnd PPoss {GenerateRow X}}}
-			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateRow X}}} end
+			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateRow X}}} 
+			end
 		[]drone(column Y) then
 			if(Answer) then NewPossibilities = {ValidPositions {ListPtAnd PPoss {GenerateColumn Y}}}
-			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateColumn Y}}} end
+			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateColumn Y}}}
+			end
 		end
 
 		{System.show newPosDrone(NewPosition)}
@@ -524,20 +529,67 @@ in
 		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
 	end
 	
-	fun{SayPassingSonar ?ID ?Answer}
-		{System.show iAmHere}
+	% Answer with position when other player sends sonar
+	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
+	fun{SayPassingSonar ?ID ?Answer MyInfo}
+		% choose X or Y and send back information (random)
+		case ({OS.rand} mod 2)
+		of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
+		[] 1 then Answer = pt(x:(({OS.rand} mod Input.nColumn)+1) y:MyInfo.path.1.y)
+		end
+		% send back ID
+		ID = MyInfo.id
 	end
 	
-	fun{SayAnswerSonar ID Answer Player}
-		{System.show iAmHere}
+	% Args = arguments(position:pt(x:<x> y:<y>)) with at least x or y correct
+	fun{SayAnswerSonar Args Player}
+		% Get information
+		X Y NewPossibilities
+		PID PLives PPoss PSurf PCharge
+	in
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		pt(x:X y:Y) = Args.position
+		% Change the possibilities
+		NewPossibilities = {SonarPossibilities X Y Poss}
+		% Return
+		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
+	end
+
+	% Calculate player's position possibibilities after sonar
+	fun{SonarPossibilities X Y Poss}
+		case Poss
+		of nil then nil
+		[] H|T then 
+			if (H.x == X orelse H.y == Y) then H|{SonarPossibilities X Y T}
+			else {SonarPossibilities X Y T}
+			end
+		end
 	end
 	
-	fun{SayDeath ID Player}
-		{System.show iAmHere}
+	% Simply removing player from PlayersInfo if he is dead
+	fun{SayDeath ID PlayersInfo}
+		case PlayersInfo
+		of nil then nil
+		[] player(id:PlayerID lives:_ possibilities:_ surface:_ charge:_)|Next then
+			if (ID == PlayerID) then
+				Next
+			else
+				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
+			end
+		end
 	end
 	
-	fun{SayDamageTaken ID Damage LifeLeft Player}
-		{System.show iAmHere}
+	fun{SayDamageTaken Args Player}
+		% Get information
+		Damage LifeLeft
+		PID PLives PPoss PSurf PCharge
+	in
+		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		arguments(damage:Damage lifeLeft:LifeLeft) = Args
+		% show error message if PLives-Damage \= LifeLeft
+		if PLives-Damage \= LifeLeft then {System.show "ERROR : SayDamageTaken > PLives-Damage \= LifeLeft"} end
+		% Return
+		player(id:PID lives:LifeLeft possibilities:PPoss surface:PSurf charge:PCharge)
 	end
 
 % ------------------------------------------
@@ -592,7 +644,7 @@ in
 			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
 			% edit PlayersInfo's lives will be done with sayDamageTaken
 		
-		%todo, reflection: do we add the possible position of the mine, because actually we do not?
+		%todo, reflection: do we add the possible position of the mine, because actually we do not? I don't think we should for the random basic player... for the intelligent, maybe when we have a better idea of where the player is
 		[]sayMineExplode(ID Position ?Message)|T then 
 			{TreatStream T {SayMineExplodeMyInfo MyInfo Position Message} PlayersInfo}
 		
@@ -604,21 +656,21 @@ in
 			%todo remove possibilities
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerDrone arguments(drone:Drone id:ID answer:Answer)}}
 		
-		%todo define strat for infomation that we give, count number that maximize unknown
+		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
 		[]sayPassingSonar(?ID ?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayAnswerSonar(ID Answer)|T then
-			%todo remove possibilities
-			{TreatStream T MyInfo PlayersInfo}
+			%todo problems might occur if answer isn't "pt(x:<x> y:<y>)" but normally it's correct
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerSonar arguments(position:Answer)}}
 		
-		[]sayDeath(ID)|T then 
-			%todo modify PlayersInfo with PlayerModification
-			{TreatStream T MyInfo PlayersInfo}
+		[]sayDeath(ID)|T then
+			% Dead player removed from player list
+			{TreatStream T MyInfo {SayDeath ID PlayersInfo}}
 		
 		[]sayDamageTaken(ID Damage LifeLeft)|T then 
 			%todo modify PlayersInfo with PlayerModification
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayDamageTaken arguments(damage:Damage lifeLeft:LifeLeft)}}
 		
 		[] _|T then
 			{TreatStream T MyInfo PlayersInfo}
