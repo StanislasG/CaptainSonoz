@@ -550,7 +550,7 @@ in
 		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
 		pt(x:X y:Y) = Args.position
 		% Change the possibilities
-		NewPossibilities = {SonarPossibilities X Y Poss}
+		NewPossibilities = {SonarPossibilities X Y PPoss}
 		% Return
 		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
 	end
@@ -574,7 +574,7 @@ in
 			if (ID == PlayerID) then
 				Next
 			else
-				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
+				PlayersInfo.1|{SayDeath ID Next}
 			end
 		end
 	end
@@ -587,7 +587,7 @@ in
 		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
 		arguments(damage:Damage lifeLeft:LifeLeft) = Args
 		% show error message if PLives-Damage \= LifeLeft
-		if PLives-Damage \= LifeLeft then {System.show "ERROR : SayDamageTaken > PLives-Damage \= LifeLeft"} end
+		if (PLives-Damage \= LifeLeft) then {System.show error(damage:Damage lifeLeft:LifeLeft playerLives:PLives)} end
 		% Return
 		player(id:PID lives:LifeLeft possibilities:PPoss surface:PSurf charge:PCharge)
 	end
