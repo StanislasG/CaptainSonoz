@@ -19,6 +19,7 @@ define
 	ListPtAnd ListPtExcl
 	GenerateRow GenerateColumn
 	MyInfoChangeVal
+	PlayersInfoPos
 	PrettyPrintMap
 	
 	% Game start functions
@@ -214,6 +215,32 @@ in
 		end
 	end
 
+	%player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
+	fun{PlayersInfoPos MyInfo PlayersInfo} 
+		fun{CheckMine Mine Pos} %Mine list of mine, Pos=ennemi
+			if(Mine==nil) then null
+			elseif({ManhattanDistance Mine.1.1 Pos}=<1) then Mine.1
+			else {CheckMine Mine.2 Pos} end
+		end
+	in
+		case PlayersInfo
+		of nil then null %no more players
+		[] Player|Next then 
+			{System.show playerPoss(Player.id Player.possibilities)}
+			if(Player.id == MyInfo.id) 				then {PlayersInfoPos MyInfo Next}
+			%todo verify if it is correct and impl multi poss + correct Player.possibilities
+			elseif(Player.possibilities == nil orelse Player.possibilities.2 \= nil) 	then {PlayersInfoPos MyInfo Next}
+			else Check in
+				Check = {CheckMine MyInfo.mine Player.possibilities.1}
+				case Check
+				of null		then {PlayersInfoPos MyInfo Next}
+				[] mine(_)	then CheckMine
+				end
+			end
+		end
+	end
+
+
 	%PoinList = pt(x: y:_)|pt|...|nil
 	%it works if nothing else is printing to the terminal at the same time
 	%with his actual config it take a list of points and add it on the Input map (can be used for visualing the possible positions of the players)
@@ -358,11 +385,9 @@ in
 
 	fun{FireItem KindFire MyInfo} Fire NewMyInfo in
 		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
-		{System.show fire(Fire)}
 		if(Fire.mine == 0) then KindFire=null NewMyInfo=MyInfo
 		else Possib in %place mine
 			Possib = {ValidPositionsAround MyInfo.path.1} %todo can we put a mine on our spot?
-			{System.show possib(Possib)}
 			if(Possib==null) then KindFire=null NewMyInfo=MyInfo
 			else 
 				KindFire=mine(Possib.1) 
@@ -372,9 +397,19 @@ in
 		NewMyInfo
 	end
 
-	proc{FireMine ID Mine MyInfo} %todo
-		ID = MyInfo.id
-		Mine = null
+	fun{FireMine Mine MyInfo PlayersInfo} %todo guess better, here only if 100% sure
+		NewMyInfo 
+
+		fun{MineExcl MineList Mine} %return a MineList without the Mine
+			if(MineList == nil) 		then nil
+			elseif(MineList.1 == Mine)	then MineList.2
+			else {MineExcl MineList.2 Mine} end
+		end
+	in 
+		Mine = {PlayersInfoPos MyInfo PlayersInfo}
+		NewMyInfo = {MyInfoChangeVal MyInfo mine {MineExcl MyInfo.mine Mine}} %works also for null
+
+		NewMyInfo
 	end
 
 % ------------------------------------------
@@ -393,7 +428,7 @@ in
 		case PlayersInfo
 		of nil then nil
 		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == WantedID) then
+			if (ID == WantedID.id) then %todo change in StartPlayer, CreatePlayers
 				{Fun Args PlayersInfo.1}|Next
 			else
 				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
@@ -446,7 +481,7 @@ in
 	end
 
 	% On missile explosion, edit my info and send message back
-	fun{SayMissileExplodeMyInfo MyInfo Pos Message} DamageTaken in
+	fun{SayMissileExplodeMyInfo MyInfo Pos ?Message} DamageTaken in
 		% Compute damage taken
 		case {ManhattanDistance MyInfo.path.1 Pos}
 			of 1 then	DamageTaken = 1
@@ -597,12 +632,11 @@ in
 		of nil then skip
 
 		[]initPosition(?ID ?Pos)|T then NewMyInfo in
-			{System.show myInfo(MyInfo)}
 			NewMyInfo = {InitPosition ID Pos MyInfo} %MyInfo=myInfo(id:_)
-			{System.show newMyInfo(NewMyInfo)}
 			{TreatStream T NewMyInfo PlayersInfo}
 		
 		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
+			{System.show move(ID)}
 			NewMyInfo = {Move ID Pos Direction MyInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 
@@ -619,9 +653,10 @@ in
 			NewMyInfo = {FireItem KindFire MyInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 
-		[]fireMine(?ID ?Mine)|T then 
-			{FireMine ID Mine MyInfo}
-			{TreatStream T MyInfo PlayersInfo}
+		[]fireMine(?ID ?Mine)|T then NewMyInfo in
+			ID = MyInfo.id
+			NewMyInfo = {FireMine Mine MyInfo PlayersInfo}
+			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]isDead(?Answer)|T then 
 			{TreatStream T MyInfo PlayersInfo}
@@ -641,7 +676,7 @@ in
 		[]sayMissileExplode(ID Position ?Message)|T then
 			% edit MyInfo (lives) and send Message back
 			% edit specific player's info (charge.missile)
-			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
+			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position ?Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
 			% edit PlayersInfo's lives will be done with sayDamageTaken
 		
 		%todo, reflection: do we add the possible position of the mine, because actually we do not? I don't think we should for the random basic player... for the intelligent, maybe when we have a better idea of where the player is
