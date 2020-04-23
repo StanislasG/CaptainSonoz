@@ -89,6 +89,7 @@ in
 		[] south then {South Pos}
 		[] east  then {East  Pos}
 		[] west  then {West  Pos}
+		[] surface then Pos
 		end
 	end
 
@@ -290,13 +291,7 @@ in
 		% Assign values to unassigned var
 		Direction = {FindPath P MyInfo.path Possib}
 		ID = MyInfo.id
-		case Direction
-		of north   then Pos = {North P}
-		[] south   then Pos = {South P}
-		[] east    then Pos = {East  P}
-		[] west    then Pos = {West  P}
-		[] surface then Pos = P
-		end 
+		Pos = {NewPosition P Direction}
 
 		% Return modified MyInfo
 		if(Direction == surface) then
@@ -509,7 +504,6 @@ in
 	in
 		arguments(drone:Drone id:DID answer:Answer) = Args
 		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
-		
 		% Calculate
 		case Drone 
 		of drone(row X) then
@@ -521,7 +515,6 @@ in
 			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateColumn Y}}}
 			end
 		end
-
 		% Return
 		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
 	end
@@ -655,7 +648,7 @@ in
 		
 		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
 		[]sayPassingSonar(?ID ?Answer)|T then
-            {SayPassingSonar ID Answer MyInfo}
+      {SayPassingSonar ID Answer MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayAnswerSonar(ID Answer)|T then

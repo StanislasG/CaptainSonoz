@@ -6,12 +6,24 @@ import
 	System % added for System.show
 define
 	% FUNCTIONS
+	% Initialise
 	CreatePlayers
 	InitPlayers
-	
+	% Small functions
 	ArrayReplace
 	NextPlayer
-	Broadcast BroadcastExclID
+	% In-game management
+	Move
+	Charge 
+	Fire
+	Mine
+	% For recursivity
+	DamagingItem
+	Sonar
+	Drone
+	% Broadcasting
+	Broadcast
+	% Main
 	TurnByTurn
 
 	% VARIABLES
@@ -19,10 +31,10 @@ define
 	Players
 in
 
-% ------------------------------------------
+% -------------------------------------------------
 % Initialisation
-% ------------------------------------------
-	% Create a list of players
+% -------------------------------------------------
+		% Create a list of players
 	fun {CreatePlayers}
 		local 
 			fun {CreatePlayerList ID NPlayers Players Colors}
@@ -50,123 +62,231 @@ in
 		else skip
 		end
 	end
-% ------------------------------------------
-% In-game management
-% ------------------------------------------
+
+% -------------------------------------------------
+% Small functions
+% -------------------------------------------------
 	fun{ArrayReplace Array Pos NewItem}
 		if(Pos<1) then {System.show pos_error} raise wrongArrayPositionException() end
 		elseif(Pos==1) then NewItem|Array.2 
 		else Array.1|{ArrayReplace Array.2 Pos-1 NewItem} end
 	end
 
-	fun{NextPlayer CurrentP}
-		if (CurrentP == Input.nbPlayer) then 1 %Id start at 1
-		else CurrentP+1 end
+	fun{NextPlayer CurrentPlayer}
+		if (CurrentPlayer == Input.nbPlayer) then 1 %Id start at 1
+		else CurrentPlayer+1 end
+	end
+	
+% -------------------------------------------------
+% In-game management
+% -------------------------------------------------
+	% Moving
+	fun{Move CurrentPlayer}
+		ID Pos Direction
+	in
+		{Send {List.nth Players CurrentPlayer} move(?ID ?Pos ?Direction)}
+		{Wait ID} {Wait Pos} {Wait Direction}
+		% Check if player is dead
+		if ID==null then false
+		else
+			% Broadcast and return false to indicate end of turn
+			if Direction == surface then
+				{Send GuiPort surface(ID)}
+				{Broadcast saySurface(ID)}
+				false
+			% Broadcast direction and return true to indicate continuing to play
+			else
+				{Send GuiPort movePlayer(ID Pos)}
+				{Broadcast sayMove(ID Direction)}
+				true
+			end
+		end
 	end
 
-%sayMove(ID Direction), saySurface(ID), sayCharge(ID KindItem), sayMinePlaced(ID), sayAnswerDrone(Drone ID Answer), sayAnswerSonar(ID Answer), sayDeath(ID), sayDamageTaken(ID Damage LifeLeft)
-	proc{Broadcast Message}
-		proc{MessageToPlayer Message CurrentP}
-			%{System.show broadcast(CurrentP Message)}
-			if(CurrentP < Input.nbPlayer) then
-				{Send {List.nth Players CurrentP} Message}
-				{MessageToPlayer Message {NextPlayer CurrentP}}
-			else {Send {List.nth Players CurrentP} Message} end
-		end
-	in {MessageToPlayer Message 1}  end
-
-	proc{BroadcastExclID Message ID}
-		proc{MessageToPlayer Message CurrentP}
-			if(ID.id == CurrentP) then
-				{MessageToPlayer Message CurrentP+1}
-			elseif(CurrentP < Input.nbPlayer) then
-				%{System.show broadcastExclID(CurrentP Message)}
-				{Send {List.nth Players CurrentP} Message}
-				{MessageToPlayer Message CurrentP+1}
-			elseif(CurrentP == Input.nbPlayer) then
-				%{System.show broadcastExclID(CurrentP Message)}
-				{Send {List.nth Players CurrentP} Message} 
+	% Charging an item
+	proc{Charge CurrentPlayer}
+		KindItem
+		ID
+	in
+		% Get information about item charged
+		{Send {List.nth Players CurrentPlayer} chargeItem(?ID ?KindItem)}
+		{Wait ID} {Wait KindItem}
+		% Check if player is dead
+		if ID == null then skip
+		else
+			% Check if player has fully charged an item
+			if KindItem == null then skip
+			% Broadcast information if player has fully charged an item
+			else {Broadcast sayCharge(ID KindItem)}
 			end
 		end
-	in {MessageToPlayer Message 1}  end
+	end
 
-	proc{TurnByTurn CurrentP TimeAtSurf}
-		%TimeAtSurf array with all player and nb of turns their waited
-		%~1 == is not waiting to dive
+	% Firing an item
+	proc{Fire CurrentPlayer}
+		ID
+		Item
+	in
+		{Send {List.nth Players CurrentPlayer} fireItem(?ID ?Item)}
+		{Wait ID} {Wait Item}
+		% Check if player is dead
+		if ID == null then skip
+		else
+			% Check item fired
+			case Item
+			of null then skip
+			% Mine : notify all players and update GUI
+			[] mine(Position) then
+				{Broadcast sayMinePlaced(ID)}
+				{Send GuiPort putMine(ID Position)}
+			% Missile : notify all players and send back answers if damaged players. Used proc "DamagingItem" to handle recursivity
+			[] missile(Position) then
+				{DamagingItem ID Position missile}
+			[] sonar then
+				{Sonar ID CurrentPlayer}
+			[] drone(RowOrColumn Number) then
+				{Drone ID CurrentPlayer drone(RowOrColumn Number)}
+			end
+		end
+	end
 
-		{Time.delay Input.guiDelay} 
+	% Handle mines
+	proc{Mine CurrentPlayer}
+		ID
+		MinePosition
+	in
+		% Ask if exploding mine
+		{Send {List.nth Players CurrentPlayer} fireMine(?ID ?MinePosition)}
+		{Wait ID} {Wait MinePosition}
+		% Handle answer
+		if MinePosition == null then skip
+		else 
+			{DamagingItem ID MinePosition mine}
+			{Send GuiPort removeMine(ID Mine)}
+		end
+	end
 
-		if ({List.nth TimeAtSurf CurrentP} == Input.turnSurface) then %check if may dive
-			{Send {List.nth Players CurrentP} dive} %diving
-			{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ~1}} 
-		elseif {And {List.nth TimeAtSurf CurrentP}<Input.turnSurface  {List.nth TimeAtSurf CurrentP}>=0} then %need to wait for diving
-			{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP ({List.nth TimeAtSurf CurrentP}+1)}}
-		else %already under water
-			%continue playing
-			local ID Pos Direction in
-				{Send {List.nth Players CurrentP} move(?ID ?Pos ?Direction)}
-				{Wait ID} {Wait Pos} {Wait Direction}
-				if (Direction==surface) then 
-					%{System.show mainSurface(id:ID)}
-					{Send GuiPort surface(ID)}
-					{Broadcast saySurface(ID)}
-					{TurnByTurn {NextPlayer CurrentP} {ArrayReplace TimeAtSurf CurrentP 0}} %0 or 1, do not understand the rules
-					%end turn
-				else 
-					%continue playing
-					{Send GuiPort movePlayer(ID Pos)}
-					{Broadcast sayMove(ID Direction)}
+% -------------------------------------------------
+% Functions for recursivity
+% -------------------------------------------------
 
-					%charge an item, broadcast if produced
-					local IDcharge KindItem in
-						{Send {List.nth Players CurrentP} chargeItem(?IDcharge ?KindItem)}
-						{Wait IDcharge} {Wait KindItem}
-						case KindItem
-							of null 	then skip
-							[] mine 	then {Broadcast mine}
-							[] missile 	then {Broadcast missile}
-							[] sonar 	then {Broadcast sonar}
-							[] drone 	then {Broadcast drone}
-						end
+	% On fire of missile or mine (missile with fireItem and mine with fireMine)
+	proc{DamagingItem ID Position KindItem}
+		proc{DamagingItemRecursive ID Position KindItem PlayerList}
+			case PlayerList
+			of nil then skip
+			[] Player|T then
+				% Handle message to current player
+				local Message in
+					case KindItem
+					of missile then {Send Player sayMissileExplode(ID Position ?Message)}
+					[] mine then {Send Player sayMineExplode(ID Position ?Message)}
 					end
-
-					%ask if item fired, broadcast if fired
-					local IDfire Item in
-						{Send {List.nth Players CurrentP} fireItem(?IDfire ?Item)}
-						{Wait IDfire} {Wait Item}
-						case Item
-							of null 			then skip
-							[] mine(PosMine) then 	
-								{Broadcast sayMinePlaced(IDfire)}
-								{Send GuiPort putMine(IDfire PosMine)}
-							[] missile(PosMiss)	then Message in %todo sayDommageTaken and sayDeath for mine and missile
-								{Broadcast sayMissileExplode(ID PosMiss ?Message)}
-							[] sonar then SID Answer in %todo reflection broadcast to everyone, also the one that send the sonar?
-								{BroadcastExclID sayPassingSonar(?SID ?Answer) ID}
-								{Broadcast sayAnswerSonar(SID Answer)}
-							[] drone(RowCol Number) then DID Answer in%todo reflection broadcast to everyone, also the one that send the drone?
-								{BroadcastExclID sayPassingDrone(drone(RowCol Number) ?DID ?Answer) ID} %todo correct errors
-								{Broadcast sayAnswerDrone(drone(RowCol Number) DID Answer)}
-						end
+					{Wait Message}
+					% Broadcast information
+					if Message == null then skip
+					else {Broadcast Message}
 					end
-
-					%Player can explode a mine
-					local IDmine Mine in
-						{Send {List.nth Players CurrentP} fireMine(?IDmine ?Mine)}
-						{Wait IDmine} {Wait Mine}
-						case Mine 
-							of null 		then skip
-							[] pt(x:_ y:_) 	then Message in 
-								{BroadcastExclID sayMineExplode(IDmine Mine ?Message) IDmine}
-								%{Broadcast sayMineExplode(IDmine Mine ?Message)}
-								{Send GuiPort removeMine(IDmine Mine)} %todo sayDommageTaken and sayDeath for mine and missile
-						end
-					end
-
-					{TurnByTurn {NextPlayer CurrentP} TimeAtSurf}
 				end
+				{DamagingItemRecursive ID Position KindItem T}
 			end
 		end
+	in
+		{DamagingItemRecursive ID Position KindItem Players}
+	end
+
+	% Handle sonar recursivity
+	proc{Sonar ID CurrentPlayer}
+		proc{SonarRecursive ID CurrentPlayer PlayerList}
+			case PlayerList
+			of nil then skip
+			[] Player|T then
+				% Handle message to current player
+				local EnnemyID Answer in
+					{Send Player sayPassingSonar(?EnnemyID ?Answer)}
+					% Send back information to player that has sent the sonar
+					{Send {List.nth Players CurrentPlayer} sayAnswerSonar(EnnemyID Answer)}
+				end
+				% Recursive call
+				{SonarRecursive ID CurrentPlayer T}
+			end
+		end
+	in
+		{SonarRecursive ID CurrentPlayer Players}
+	end
+
+	% Handle drone recursivity
+	proc{Drone ID CurrentPlayer Drone}
+		proc{DroneRecursive ID CurrentPlayer Drone PlayerList}
+			case PlayerList
+			of nil then skip
+			[] Player|T then
+				% Handle message to current player
+				local EnnemyID Answer in
+					{Send Player sayPassingDrone(Drone ?EnnemyID ?Answer)}
+					% Send back information to player that has sent the drone
+					{Send {List.nth Players CurrentPlayer} sayAnswerDrone(Drone EnnemyID Answer)}
+				end
+				% Recursive call
+				{DroneRecursive ID CurrentPlayer Drone T}
+			end
+		end
+	in
+		{DroneRecursive ID CurrentPlayer Drone Players}
+	end
+
+% -------------------------------------------------
+% Broadcasting
+% -------------------------------------------------
+	% Send a message to all players
+	proc {Broadcast Message}
+		proc{MessageToPlayer Message PlayerNumber}
+			if(PlayerNumber =< Input.nbPlayer) then
+				{Send {List.nth Players PlayerNumber} Message}
+				{MessageToPlayer Message PlayerNumber+1}
+			else skip
+			end
+		end
+	in 
+		{MessageToPlayer Message 1}
+	end
+
+% -------------------------------------------------
+% Turn-by-turn
+% -------------------------------------------------
+	proc{TurnByTurn CurrentPlayer TimeAtSurface}
+		% Set delay
+		{Time.delay Input.guiDelay}
+		
+		% If the player is at surface and can dive
+		if({List.nth TimeAtSurface CurrentPlayer} == Input.turnSurface) then
+			{Send {List.nth Players CurrentPlayer} dive}
+			% Recursive call
+			{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer ~1}}
+		
+		% If the player is at surface but can't dive
+		elseif ({List.nth TimeAtSurface CurrentPlayer} >= 0 andthen {List.nth TimeAtSurface CurrentPlayer} < Input.turnSurface) then
+			% Recursive call
+			{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer ({List.nth TimeAtSurface CurrentPlayer}+1)}}
+		
+		% If the player is under water
+		else
+			% Player's turn is over
+			if {Not {Move CurrentPlayer}} then 
+				{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer 0}} % todo 0 or 1, do not understand the rules
+			% Player's turn continues
+			else
+				% Charge an item
+				{Charge CurrentPlayer}
+				% Fire an item
+				{Fire CurrentPlayer}
+				% Mine explosion
+				{Mine CurrentPlayer}
+			end
+			% Recursive call
+			{TurnByTurn {NextPlayer CurrentPlayer} TimeAtSurface}
+		end
+
 	end
 
 % ------------------------------------------
