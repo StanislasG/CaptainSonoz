@@ -67,7 +67,7 @@ in
 %sayMove(ID Direction), saySurface(ID), sayCharge(ID KindItem), sayMinePlaced(ID), sayAnswerDrone(Drone ID Answer), sayAnswerSonar(ID Answer), sayDeath(ID), sayDamageTaken(ID Damage LifeLeft)
 	proc{Broadcast Message}
 		proc{MessageToPlayer Message CurrentP}
-			{System.show broadcast(CurrentP Message)}
+			%{System.show broadcast(CurrentP Message)}
 			if(CurrentP < Input.nbPlayer) then
 				{Send {List.nth Players CurrentP} Message}
 				{MessageToPlayer Message {NextPlayer CurrentP}}
@@ -80,11 +80,11 @@ in
 			if(ID.id == CurrentP) then
 				{MessageToPlayer Message CurrentP+1}
 			elseif(CurrentP < Input.nbPlayer) then
-				{System.show broadcastExclID(CurrentP Message)}
+				%{System.show broadcastExclID(CurrentP Message)}
 				{Send {List.nth Players CurrentP} Message}
 				{MessageToPlayer Message CurrentP+1}
 			elseif(CurrentP == Input.nbPlayer) then
-				{System.show broadcastExclID(CurrentP Message)}
+				%{System.show broadcastExclID(CurrentP Message)}
 				{Send {List.nth Players CurrentP} Message} 
 			end
 		end

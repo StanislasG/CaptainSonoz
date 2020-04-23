@@ -497,7 +497,6 @@ in
 			of drone(row X) 	then Answer=(MyInfo.path.1.x == X)
 			[] drone(column Y)	then Answer=(MyInfo.path.1.y == Y)
 		end
-		{System.show sayPassingDrone(drone:Drone id:ID answer:Answer)}
 	end
 	
 	%Args = arguments(drone:Drone id:ID answer:Answer)
@@ -523,15 +522,13 @@ in
 			end
 		end
 
-		{System.show newPosDrone(NewPosition)}
-
 		% Return
 		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
 	end
 	
 	% Answer with position when other player sends sonar
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
-	fun{SayPassingSonar ?ID ?Answer MyInfo}
+	proc{SayPassingSonar ?ID ?Answer MyInfo}
 		% choose X or Y and send back information (random)
 		case ({OS.rand} mod 2)
 		of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
@@ -657,7 +654,8 @@ in
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerDrone arguments(drone:Drone id:ID answer:Answer)}}
 		
 		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
-		[]sayPassingSonar(?ID ?Answer)|T then 
+		[]sayPassingSonar(?ID ?Answer)|T then
+            {SayPassingSonar ID Answer MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayAnswerSonar(ID Answer)|T then
