@@ -2,6 +2,7 @@
 Makefile*
 *.ozf
 tests.oz
+.DS_Store
 
 # Avoid ignoring these (due to '!')
 !PlayerBasicAI.ozf 
