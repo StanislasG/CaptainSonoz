@@ -283,7 +283,7 @@ in
 			{System.show {List.toTuple '_' Map.1}}
 			if(Map.2\=nil) then {PrintMap Map.2} end
 		end
-	in {System.show '----'} {PrintMap {TempMap Input.map PointList 9}} {System.show '----'}	end
+	in {Time.delay 100} {System.show '----'} {PrintMap {TempMap Input.map PointList 9}} {System.show '----'}	end
 
 % ------------------------------------------
 % Initialisation
@@ -451,11 +451,10 @@ in
 
 	% Move broadcasted, try to locate all players based only by elemination of possibilities 
 	% Args: arguments(direction:___)
-	fun{SayMove Args Player} PPoss NewPossibilities in
-		PPoss = Player.possibilities
+	fun{SayMove Args Player} NewPossibilities in 
 		% Calculate
-		NewPossibilities = {ValidPositions {NewPositionList PPoss Args.direction}}
-		%{PrettyPrintMap NewPossibilities}
+		NewPossibilities = {ValidPositions {NewPositionList Player.possibilities Args.direction}}
+		{PrettyPrintMap NewPossibilities}
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities} %todo do we set surface to false?
 	end
@@ -552,7 +551,7 @@ in
 		% Get information
 		NewPossibilities
 		Drone DID Answer
-		PCharge
+		PPoss
 	in
 		arguments(drone:Drone id:DID answer:Answer) = Args
 		PPoss = Player.possibilities
@@ -587,12 +586,10 @@ in
 	fun{SayAnswerSonar Args Player}
 		% Get information
 		X Y NewPossibilities
-		PPoss
 	in
-		PPoss = Player.possibilities
 		pt(x:X y:Y) = Args.position
 		% Change the possibilities
-		NewPossibilities = {SonarPossibilities X Y PPoss}
+		NewPossibilities = {SonarPossibilities X Y  Player.possibilities}
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
