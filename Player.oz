@@ -18,7 +18,7 @@ define
 	ManhattanDistance
 	ListPtAnd ListPtExcl
 	GenerateRow GenerateColumn
-	MyInfoChangeVal
+	MyInfoChangeVal PlayerChangeVal PlayerNbChangeVal
 	PlayersInfoPos
 	PrettyPrintMap
 	
@@ -216,6 +216,24 @@ in
 		end
 	end
 
+	fun{PlayerChangeVal Record Label NewVal} ID Lives Poss Surface Charge in
+		player(id:ID lives:Lives possibilities:Poss surface:Surface charge:Charge) = Record
+		case Label 
+			of id 				then player(id:NewVal lives:Lives possibilities:Poss surface:Surface charge:Charge)
+			[] lives 			then player(id:ID lives:NewVal possibilities:Poss surface:Surface charge:Charge)
+			[] possibilities	then player(id:ID lives:Lives possibilities:NewVal surface:Surface charge:Charge)
+			[] surface			then player(id:ID lives:Lives possibilities:Poss surface:NewVal charge:Charge)
+			[] charge			then player(id:ID lives:Lives possibilities:Poss surface:Surface charge:NewVal)
+		end
+	end
+	
+	fun{PlayerNbChangeVal List Number Label NewVal}
+		if(List==nil)		then {System.show error(thePlayerdoesNotExist)}
+		elseif(Number==1) 	then {PlayerChangeVal List.1 Label NewVal}|List.2
+		else List.1|{PlayerNbChangeVal List.2 Number-1 Label NewVal}
+		end
+	end
+
 	%player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
 	fun{PlayersInfoPos MyInfo PlayersInfo} 
 		fun{CheckMine Mine Pos} %Mine list of mine, Pos=ennemi
@@ -228,7 +246,7 @@ in
 		of nil then null %no more players
 		[] Player|Next then 
 			{System.show playerPoss(Player.id Player.possibilities)}
-			if(Player.id == MyInfo.id) 				then {PlayersInfoPos MyInfo Next}
+			if(Player.id == MyInfo.id.id) 				then {PlayersInfoPos MyInfo Next}
 			%todo verify if it is correct and impl multi poss + correct Player.possibilities
 			elseif(Player.possibilities == nil orelse Player.possibilities.2 \= nil) 	then {PlayersInfoPos MyInfo Next}
 			else Check in
@@ -298,7 +316,7 @@ in
 	end
 
 	fun{CreatePlayers} %only used in StartPlayer to init a tracker of all players
-		fun{CreatePlayer ID}
+		fun{CreatePlayer ID} %todo private fun in startplayer
 			if(ID>Input.nbPlayer) then nil 
 			else
 				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} surface:true charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreatePlayer ID+1}
@@ -407,7 +425,7 @@ in
 		NewMyInfo
 	end
 
-% ------------------------------------------
+% ------------------------------------------  
 % In-game management - Receive Information
 % ------------------------------------------
 	% Apply "Fun" to the right player
@@ -433,27 +451,25 @@ in
 
 	% Move broadcasted, try to locate all players based only by elemination of possibilities 
 	% Args: arguments(direction:___)
-	fun{SayMove Args Player} PID PLives PPoss PSurf PCharge NewPossibilities in
-		player(id:PID lives:PLives possibilities:PPoss surface:_ charge:PCharge) = Player
+	fun{SayMove Args Player} PPoss NewPossibilities in
+		PPoss = Player.possibilities
 		% Calculate
 		NewPossibilities = {ValidPositions {NewPositionList PPoss Args.direction}}
 		%{PrettyPrintMap NewPossibilities}
 		% Return
-		player(id:PID lives:PLives possibilities:NewPossibilities surface:false charge:PCharge)
+		{PlayerChangeVal Player possibilities NewPossibilities} %todo do we set surface to false?
 	end
 
 	% Update Player.surface when player has surfaced
 	% Args: arguments() [no arguments]
-	fun{SaySurface Args Player} PID PLives PPoss PCharge in
-		player(id:PID lives:PLives possibilities:PPoss surface:_ charge:PCharge) = Player
-		% Return
-		player(id:PID lives:PLives possibilities:PPoss surface:true charge:PCharge)
+	fun{SaySurface Args Player} 
+		{PlayerChangeVal Player surface true}
 	end
 	
 	% Updates Player's charge number on an item
 	% Args: arguments(itemKind)
-	fun{SayCharge Args Player} PID PLives PPoss PSurf PCharge NewCharge in
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+	fun{SayCharge Args Player} PCharge NewCharge in
+		PCharge = Player.charge
 		% Calculate
 		case Args.itemKind
 		of mine    then NewCharge = charge(mine:PCharge.mine+1 missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone)
@@ -462,17 +478,17 @@ in
 		[] drone   then NewCharge = charge(mine:PCharge.mine missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone+1)
 		end
 		% Return
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
+		{PlayerChangeVal Player charge NewCharge}
 	end
 	
 	% Update mine charge status when mine is placed
 	% Args: arguments() [no arguments]
-	fun{SayMinePlaced Args Player} PID PLives PPoss PSurf PCharge NewCharge in
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+	fun{SayMinePlaced Args Player}PCharge NewCharge in
+		PCharge = Player.charge
 		% Edit new charges status
 		NewCharge = charge(mine:0 missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone)
 		% Return
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
+		{PlayerChangeVal Player charge NewCharge}
 	end
 
 	% On missile explosion, edit my info and send message back
@@ -494,12 +510,12 @@ in
 
 	% On missile explosion, edit missile charge status
 	% Args: arguments() [no arguments]
-	fun{SayMissileExplodeMissileStatus Args Player} PID PLives PPoss PSurf PCharge NewCharge in
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+	fun{SayMissileExplodeMissileStatus Args Player} PCharge NewCharge in
+		PCharge = Player.charge
 		% Edit new charges status
 		NewCharge = charge(mine:PCharge.mine missile:0 sonar:PCharge.sonar drone:PCharge.drone)
 		% Return
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:NewCharge)
+		{PlayerChangeVal Player charge NewCharge}
 	end
 	
 	% Edit MyInfo on mine explosion
@@ -520,7 +536,8 @@ in
 		{MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
 	end
 	
-	% Passing drone
+	% Passing drone 
+	%todo add the info to our player in PlayersInfo
 	proc{SayPassingDrone Drone ?ID ?Answer MyInfo}
 		ID = MyInfo.id
 		case Drone
@@ -531,14 +548,14 @@ in
 	
 	%Args = arguments(drone:Drone id:ID answer:Answer)
 	%drone(row <x>) | drone(column <y>)
-	fun{SayAnswerDrone Args Player} %todo erase one PID=DID
+	fun{SayAnswerDrone Args Player} %todo error in understanding DID (not used)
 		% Get information
 		NewPossibilities
 		Drone DID Answer
-		PID PLives PPoss PSurf PCharge
+		PCharge
 	in
 		arguments(drone:Drone id:DID answer:Answer) = Args
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		PPoss = Player.possibilities
 		% Calculate
 		case Drone 
 		of drone(row X) then
@@ -551,7 +568,7 @@ in
 			end
 		end
 		% Return
-		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
+		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
 	
 	% Answer with position when other player sends sonar
@@ -570,18 +587,18 @@ in
 	fun{SayAnswerSonar Args Player}
 		% Get information
 		X Y NewPossibilities
-		PID PLives PPoss PSurf PCharge
+		PPoss
 	in
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		PPoss = Player.possibilities
 		pt(x:X y:Y) = Args.position
 		% Change the possibilities
 		NewPossibilities = {SonarPossibilities X Y PPoss}
 		% Return
-		player(id:PID lives:PLives possibilities:NewPossibilities surface:PSurf charge:PCharge)
+		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
 
 	% Calculate player's position possibibilities after sonar
-	fun{SonarPossibilities X Y Poss}
+	fun{SonarPossibilities X Y Poss} %todo set as private fun of sayAnswerSonar
 		case Poss
 		of nil then nil
 		[] H|T then 
@@ -604,17 +621,18 @@ in
 		end
 	end
 	
+	% Args = arguments(damage:Damage lifeLeft:LifeLeft)
 	fun{SayDamageTaken Args Player}
 		% Get information
 		Damage LifeLeft
-		PID PLives PPoss PSurf PCharge
+		PLives
 	in
-		player(id:PID lives:PLives possibilities:PPoss surface:PSurf charge:PCharge) = Player
+		PLives = Player.lives
 		arguments(damage:Damage lifeLeft:LifeLeft) = Args
 		% show error message if PLives-Damage \= LifeLeft
 		if (PLives-Damage \= LifeLeft) then {System.show error(damage:Damage lifeLeft:LifeLeft playerLives:PLives)} end
 		% Return
-		player(id:PID lives:LifeLeft possibilities:PPoss surface:PSurf charge:PCharge)
+		{PlayerChangeVal Player lives LifeLeft}
 	end
 
 % ------------------------------------------
@@ -685,7 +703,7 @@ in
 		
 		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
 		[]sayPassingSonar(?ID ?Answer)|T then
-      {SayPassingSonar ID Answer MyInfo}
+			{SayPassingSonar ID Answer MyInfo}
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayAnswerSonar(ID Answer)|T then
