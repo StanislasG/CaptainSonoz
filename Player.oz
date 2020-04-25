@@ -82,10 +82,10 @@ in
 % Basic functions
 % ------------------------------------------
 	% Return pt north/... of Pos
-	fun {North Pos} pt(x:Pos.x 	y:Pos.y-1  ) end
-	fun {South Pos} pt(x:Pos.x	 y:Pos.y+1  ) end
-	fun {East  Pos} pt(x:Pos.x+1   y:Pos.y) end
-	fun {West  Pos} pt(x:Pos.x-1   y:Pos.y) end
+	fun {North Pos} pt(x:Pos.x-1 y:Pos.y  ) end
+	fun {South Pos} pt(x:Pos.x+1 y:Pos.y  ) end
+	fun {East  Pos} pt(x:Pos.x   y:Pos.y+1) end
+	fun {West  Pos} pt(x:Pos.x   y:Pos.y-1) end
 	
 	% Returns the position North/South/... of Pos 
 	fun {NewPosition Pos Direction}
