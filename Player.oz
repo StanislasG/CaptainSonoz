@@ -11,6 +11,7 @@ define
 
 	% Base functions
 	North South East West
+	IsIsland
 	NewPosition NewPositionList
 	ValidPositions
 	AccessiblePosition
@@ -86,6 +87,7 @@ in
 	fun {South Pos} pt(x:Pos.x+1 y:Pos.y  ) end
 	fun {East  Pos} pt(x:Pos.x   y:Pos.y+1) end
 	fun {West  Pos} pt(x:Pos.x   y:Pos.y-1) end
+	fun {IsIsland X Y} {List.nth {List.nth Input.map X} Y} == 1 end
 	
 	% Returns the position North/South/... of Pos 
 	fun {NewPosition Pos Direction}
@@ -121,7 +123,7 @@ in
 		% 0 meaning false and 1 meaning true
 		case Pos
 		of pt(x:X y:Y) then
-			if (X =< 0 orelse Y =< 0 orelse X > Input.nRow orelse Y > Input.nColumn orelse {List.nth {List.nth Input.map X} Y} == 1) 
+			if (X =< 0 orelse Y =< 0 orelse X > Input.nRow orelse Y > Input.nColumn orelse {IsIsland X Y})
 				then 0
 			else 1
 			end
