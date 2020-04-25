@@ -15,24 +15,28 @@ define
 	NewPosition NewPositionList
 	ValidPositions
 	AccessiblePosition
-	ValidPositionsAround
+	ValidPositionsAround ValidPositionsAroundList
+	CrossPositionCheck
 	ManhattanDistance
 	ListPtAnd ListPtExcl
-	GenerateRow GenerateColumn
-	MyInfoChangeVal PlayerChangeVal PlayerNbChangeVal
+	GenerateRow GeneratePartRow
+	GenerateColumn GeneratePartColumn
+	MyInfoChangeVal ItemRecordChangeVal 
+	PlayerChangeVal PlayerNbChangeVal
 	PlayersInfoPos
 	PrettyPrintMap
 	
 	% Game start functions
 	StartPlayer
 	InitPosition
-	CreatePlayers
 	GeneratePositions
 
 	% In-game management functions
 	Move FindPath ChooseDirection
 	Dive Surface
-	ChargeItem FireItem FireMine
+	ChargeItem 
+	FireItem MissileFindTarget
+	FireMine
 
 	% Say functions
 	PlayerModification
@@ -133,6 +137,8 @@ in
 		end
 	end
 
+	%todo place Input.Min/MinDistanceMine
+	%return a list of valid positions (no island, no ecxeeding borders) around a Position 
 	fun{ValidPositionsAround Position} X Y Temp in
 		pt(x:X y:Y) = Position
 		% 1 1 1
@@ -140,6 +146,39 @@ in
 		% 1 1 1
 		Temp = pt(x:X-1 y:Y-1)|pt(x:X-1 y:Y)|pt(x:X-1 y:Y+1)|pt(x:X y:Y-1)|pt(x:X y:Y+1)|pt(x:X+1 y:Y-1)|pt(x:X+1 y:Y)|pt(x:X+1 y:Y+1)|nil
 		{ValidPositions Temp}
+	end
+
+	%return all the points around the list Position 
+	fun{ValidPositionsAroundList Positions}
+		fun{AllPoss Positions}
+			if(Positions == nil) then nil
+			else {ValidPositionsAround Positions.1}|{AllPoss Positions.2}
+			end
+		end
+		Temp
+	in 
+		Temp = {AllPoss Positions}
+		%remove all positions in Temp (we want something hollow)
+		{ListPtExcl Temp Positions}
+	end
+
+	%return a position to hit or null
+	fun{CrossPositionCheck MyPos KillPos} Min Max X Y OwnDamage TwoPoint in
+		Min=Input.minDistanceMine Max=Input.minDistanceMine pt(x:X y:Y)=MyPos
+		OwnDamage = {ValidPositionsAround MyPos}
+		TwoPoint = {Append {Append {GeneratePartRow X Y-Max Y-Min} {GeneratePartRow X Y+Min Y+Max}} {Append {GeneratePartColumn Y X-Max X-Min} {GeneratePartColumn Y X-Min X-Max}}}
+		{System.show myPos(MyPos)}
+		{System.show ownDamage(OwnDamage)}
+		{System.show twoPoint(TwoPoint)}
+		{Time.delay 2000}
+		if({List.member KillPos TwoPoint}) then KillPos %two point hit
+		else OnePoint in
+			OnePoint = {ListPtExcl {ValidPositionsAroundList TwoPoint} MyPos|OwnDamage}
+			{System.show onePoint(OnePoint)}
+			if ({List.member KillPos OnePoint}) then KillPos %one point hit
+			else null %no hit possible
+			end
+		end
 	end
 
 	% Computes the Manhattan distance between 2 positions
@@ -194,35 +233,64 @@ in
 	end
 
 	% Generate a list of points with the right rownumber
-	fun{GenerateRow RowNumber}
+	fun{GenerateRow RowNumber}	{GeneratePartRow RowNumber 1 Input.nColumn} end
+
+	% Generate a list of points with the right rownumber with bound and With a Start and End
+	fun{GeneratePartRow RowNumber StartCol EndCol}
 		fun{GenerateRowCol ColumnNumber}
-			if (ColumnNumber==Input.nColumn) then nil 
+			if (ColumnNumber>=EndCol orelse ColumnNumber>Input.nColumn) then nil %todo check == or =>
 			else pt(x:RowNumber y:ColumnNumber) | {GenerateRowCol ColumnNumber+1} end
 		end
-	in {GenerateRowCol 1} end
+	in
+		if (StartCol<1) then {GenerateRowCol 1}
+		else {GenerateRowCol StartCol} end
+	end
 
 	% Generate a list of points with the right rownumber
-	fun{GenerateColumn ColumnNumber}
+	fun{GenerateColumn ColumnNumber} {GeneratePartColumn ColumnNumber 1 Input.nRow} end
+
+	fun{GeneratePartColumn ColumnNumber StartRow EndRow}
 		fun{GeneratColRow RowNumber}
-			if (RowNumber==Input.nRow) then nil 
+			if (RowNumber>=EndRow orelse RowNumber>Input.nRow) then nil 
 			else pt(x:RowNumber y:ColumnNumber) | {GeneratColRow RowNumber+1} end
 		end
-	in {GeneratColRow 1} end
+	in
+		if (StartRow<1) then {GeneratColRow 1}
+		else {GeneratColRow StartRow} end
+	end
 
 	fun{MyInfoChangeVal Record Label NewVal} ID Lives Path Charge Fire Mine in %add if needed
 		myInfo(id:ID lives:Lives path:Path charge:Charge fire:Fire mine:Mine) = Record
 		case Label 
-			of id 		then myInfo(id:NewVal lives:Lives path:Path charge:Charge fire:Fire mine:Mine)
-			[] lives 	then myInfo(id:ID lives:NewVal path:Path charge:Charge fire:Fire mine:Mine)
-			[] path		then myInfo(id:ID lives:Lives path:NewVal charge:Charge fire:Fire mine:Mine)
-			[] charge	then myInfo(id:ID lives:Lives path:Path charge:NewVal fire:Fire mine:Mine)
-			[] chargeM	then myInfo(id:ID lives:Lives path:Path charge:charge(mine:NewVal missile:Charge.missile sonar:Charge.sonar drone:Charge.drone) fire:Fire mine:Mine)
-			[] fire		then myInfo(id:ID lives:Lives path:Path charge:Charge fire:NewVal mine:Mine)
-			[] fireM	then myInfo(id:ID lives:Lives path:Path charge:Charge fire:fire(mine:NewVal missile:Fire.missile sonar:Fire.sonar drone:Fire.drone) mine:Mine)			
-			[] mine		then myInfo(id:ID lives:Lives path:Path charge:Charge fire:Fire mine:NewVal)
+			of id 			then myInfo(id:NewVal lives:Lives path:Path charge:Charge fire:Fire mine:Mine)
+			[] lives 		then myInfo(id:ID lives:NewVal path:Path charge:Charge fire:Fire mine:Mine)
+			[] path			then myInfo(id:ID lives:Lives path:NewVal charge:Charge fire:Fire mine:Mine)
+			[] charge		then myInfo(id:ID lives:Lives path:Path charge:NewVal fire:Fire mine:Mine)
+			[] fire			then myInfo(id:ID lives:Lives path:Path charge:Charge fire:NewVal mine:Mine)
+			[] mine			then myInfo(id:ID lives:Lives path:Path charge:Charge fire:Fire mine:NewVal)
 		end
 	end
 
+	fun{ItemRecordChangeVal Rec Label NewVal} Mine Missile Sonar Drone in
+		case Rec 
+			of charge(mine:Mine missile:Missile sonar:Sonar drone:Drone) then
+				case Label 
+					of mine 	then charge(mine:NewVal missile:Missile sonar:Sonar drone:Drone)
+					[] missile 	then charge(mine:Mine missile:NewVal sonar:Sonar drone:Drone)
+					[] sonar	then charge(mine:Mine missile:Missile sonar:NewVal drone:Drone)
+					[] drone	then charge(mine:Mine missile:Missile sonar:Sonar drone:NewVal)
+				end
+			[] fire(mine:Mine missile:Missile sonar:Sonar drone:Drone) then
+				case Label 
+					of mine 	then charge(mine:NewVal missile:Missile sonar:Sonar drone:Drone)
+					[] missile 	then charge(mine:Mine missile:NewVal sonar:Sonar drone:Drone)
+					[] sonar	then charge(mine:Mine missile:Missile sonar:NewVal drone:Drone)
+					[] drone	then charge(mine:Mine missile:Missile sonar:Sonar drone:NewVal)
+				end
+		end
+	end
+
+	%used for fire and charge
 	fun{PlayerChangeVal Record Label NewVal} ID Lives Poss Surface Charge in
 		player(id:ID lives:Lives possibilities:Poss surface:Surface charge:Charge) = Record
 		case Label 
@@ -253,7 +321,8 @@ in
 		case PlayersInfo
 		of nil then null %no more players
 		[] Player|Next then 
-			{System.show playerPoss(Player.id Player.possibilities)}
+			%{System.show playerPoss(Player.id Player.possibilities)}
+			%{System.show mines(MyInfo.mine)}
 			if(Player.id == MyInfo.id.id) 				then {PlayersInfoPos MyInfo Next}
 			%todo verify if it is correct and impl multi poss + correct Player.possibilities
 			elseif(Player.possibilities == nil) 	then {System.show error} {System.show debug(myinfo:MyInfo playersinfo:PlayersInfo)} {System.show Player.possibilities.1} %cause error for debugging 
@@ -263,7 +332,10 @@ in
 				Check = {CheckMine MyInfo.mine Player.possibilities.1}
 				case Check
 				of null			then {PlayersInfoPos MyInfo Next}
-				[] pt(x:_ y:_)	then Check
+				[] pt(x:_ y:_)	then 
+					{System.show mineFound(Check)} 
+					%{Time.delay 2000} 
+					Check
 				end
 			end
 		end
@@ -316,23 +388,20 @@ in
 	% Start Player (portPlayer from PlayerManager)
 	fun{StartPlayer Color ID}
 		Stream Port MyInfo PlayersInfo
+		fun{CreateAllPlayer ID} %only used in StartPlayer to init a tracker of all players
+			if(ID>Input.nbPlayer) then nil 
+			else
+				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} surface:true charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreateAllPlayer ID+1}
+			end
+		end
 	in
 		% MyInfo will be stored by passing it as argument in TreatStream
 		MyInfo = myInfo(id:id(id:ID color:Color name:player)) %init of myinfo as first command in treatStream
-		PlayersInfo = {CreatePlayers}
+		PlayersInfo = {CreateAllPlayer 1}
 		{NewPort Stream Port}
 		thread {TreatStream Stream MyInfo PlayersInfo} end 
 		Port % TODO : player name ?
 	end
-
-	fun{CreatePlayers} %only used in StartPlayer to init a tracker of all players
-		fun{CreatePlayer ID} %todo private fun in startplayer
-			if(ID>Input.nbPlayer) then nil 
-			else
-				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} surface:true charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreatePlayer ID+1}
-			end
-		end
-	in {CreatePlayer 1} end %first ID is one
 % ------------------------------------------
 % In-game management - Send Information
 % ------------------------------------------
@@ -394,30 +463,85 @@ in
 	%todo need to charge and bind KindItem if produced
 	%check when item is produced: Input.mine, Input.missile, Input.sonar, Input.drone
 	%<item> ::= null | mine | missile | sonar | drone
-	fun{ChargeItem KindItem MyInfo} Charge NewMyInfo in
-		Charge = MyInfo.charge %charge(mine:___ missile:___ sonar:___ drone:___) 
-		if(Charge.mine==Input.mine) then 
-			KindItem=mine 
-			NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo chargeM 0} fireM 1}
-		elseif(Charge.mine<Input.mine) then
-			KindItem=null
-			NewMyInfo = {MyInfoChangeVal MyInfo chargeM Charge.mine+1}
+
+	%strategie charge missile then mine then locate with drone/sonar 
+	% when ennemi found place mine and shoot with missile 
+	fun{ChargeItem KindItem MyInfo}
+		Produced NewMyInfo 
+		%return true if it has charge/produce the item, false if not
+		fun{ChargeItemSpec Wanted ?Produced ?NewMyInfo}
+			if(MyInfo.fire.Wanted == 0) then % not ready to fire
+				if(MyInfo.charge.Wanted == Input.Wanted) then NewCharge NewFire in % item produced
+					Produced 	= Wanted
+					NewCharge 	= {ItemRecordChangeVal MyInfo.charge Wanted 0}
+					NewFire 	= {ItemRecordChangeVal MyInfo.fire Wanted 1}
+					NewMyInfo 	= {MyInfoChangeVal {MyInfoChangeVal MyInfo charge NewCharge} fire NewFire}
+				else NewCharge in % item charge
+					Produced 	= null 
+					NewCharge 	= {ItemRecordChangeVal MyInfo.charge Wanted MyInfo.charge.Wanted+1}
+					NewMyInfo 	= {MyInfoChangeVal MyInfo charge NewCharge}
+				end
+				true
+			else % already ready to fire, cannot have two of the same item ready to be fire
+				false 
+			end
+		end
+	in
+		%try to charge/produce an item
+		if({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
+		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
+		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})	then skip
+		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})	then skip
+		end
+		%bind
+		KindItem = Produced
+		%{System.show chargeItem(Produced NewMyInfo)}
+		%return
+		NewMyInfo
+	end
+
+	%first try to detect ennemi
+	%second shoot a missile if is right
+	%third place a mine
+	fun{FireItem KindFire MyInfo PlayersInfo} Fire MissilePt NewFire NewMyInfo in
+		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
+		MissilePt = {MissileFindTarget MyInfo PlayersInfo}
+		case MissilePt
+		of pt(x:_ y:_) then 
+			KindFire = 	missile(MissilePt)
+			NewFire = 	{ItemRecordChangeVal MyInfo.fire missile 0}
+			NewMyInfo 	= {MyInfoChangeVal MyInfo fire NewFire}
+		else
+			%todo place Input.Min/MinDistanceMine
+			if(Fire.mine == 0) then KindFire=null NewMyInfo=MyInfo
+			else Possib in %place mine
+				Possib = {ValidPositionsAround MyInfo.path.1} %todo can we put a mine on our spot?
+				if(Possib==null) then KindFire=null NewMyInfo=MyInfo
+				else NewFire in
+					KindFire=mine(Possib.1) 
+					NewFire = {ItemRecordChangeVal MyInfo.fire mine 0}
+					NewMyInfo= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine Possib.1|MyInfo.mine}
+				end
+			end
 		end
 		NewMyInfo
 	end
 
-	fun{FireItem KindFire MyInfo} Fire NewMyInfo in
-		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
-		if(Fire.mine == 0) then KindFire=null NewMyInfo=MyInfo
-		else Possib in %place mine
-			Possib = {ValidPositionsAround MyInfo.path.1} %todo can we put a mine on our spot?
-			if(Possib==null) then KindFire=null NewMyInfo=MyInfo
-			else 
-				KindFire=mine(Possib.1) 
-				NewMyInfo= {MyInfoChangeVal {MyInfoChangeVal MyInfo fireM 0} mine Possib.1|MyInfo.mine}
+	%return a position or null
+	fun{MissileFindTarget MyInfo PlayersInfo}
+		%check if player has missile
+		if(MyInfo.fire.missile==0) then null
+		elseif(PlayersInfo == nil) then null
+		%check if its not us
+		elseif(MyInfo.id.id == PlayersInfo.1.id) then {MissileFindTarget MyInfo PlayersInfo.2}
+		else Poss in %todo better targeting
+			Poss = PlayersInfo.1.possibilities
+			if(Poss==nil) then {System.show missileFindTargetError} {System.show Poss.1}
+			elseif(Poss.2 \= nil) then {MissileFindTarget MyInfo PlayersInfo.2} %we ignore ennemie's position
+			else
+				{CrossPositionCheck MyInfo.path.1 Poss.1}
 			end
 		end
-		NewMyInfo
 	end
 
 	fun{FireMine Mine MyInfo PlayersInfo} %todo guess better, here only if 100% sure
@@ -456,7 +580,7 @@ in
 		case PlayersInfo
 		of nil then nil
 		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == WantedID.id) then %todo change in StartPlayer, CreatePlayers
+			if (ID == WantedID.id) then %todo change in StartPlayer
 				{Fun Args PlayersInfo.1}|Next
 			else
 				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
@@ -469,7 +593,7 @@ in
 	fun{SayMove Args Player} NewPossibilities in 
 		% Calculate
 		NewPossibilities = {ValidPositions {NewPositionList Player.possibilities Args.direction}}
-		{PrettyPrintMap NewPossibilities}
+		%{PrettyPrintMap NewPossibilities}
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities} %todo do we set surface to false?
 	end
@@ -659,7 +783,7 @@ in
 			{TreatStream T NewMyInfo PlayersInfo}
 		
 		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
-			{System.show move(ID)}
+			%{System.show move(ID)}
 			NewMyInfo = {Move ID Pos Direction MyInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 
@@ -673,7 +797,7 @@ in
 
 		[]fireItem(?ID ?KindFire)|T then NewMyInfo in
 			ID = MyInfo.id
-			NewMyInfo = {FireItem KindFire MyInfo}
+			NewMyInfo = {FireItem KindFire MyInfo PlayersInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]fireMine(?ID ?Mine)|T then NewMyInfo in
