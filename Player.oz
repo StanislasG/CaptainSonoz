@@ -87,6 +87,8 @@ in
 	fun {South Pos} pt(x:Pos.x+1 y:Pos.y  ) end
 	fun {East  Pos} pt(x:Pos.x   y:Pos.y+1) end
 	fun {West  Pos} pt(x:Pos.x   y:Pos.y-1) end
+
+	% Check if position is an island
 	fun {IsIsland X Y} {List.nth {List.nth Input.map X} Y} == 1 end
 	
 	% Returns the position North/South/... of Pos 
@@ -132,9 +134,12 @@ in
 	end
 
 	fun{ValidPositionsAround Position} X Y Temp in
-		pt(x:X y:Y) = Position																												% 1 1 1
-		Temp = pt(x:X-1 y:Y-1)|pt(x:X-1 y:Y)|pt(x:X-1 y:Y+1)|pt(x:X y:Y-1)|pt(x:X y:Y+1)|pt(x:X+1 y:Y-1)|pt(x:X+1 y:Y)|pt(x:X+1 y:Y+1)|nil	% 1 0 1
-		{ValidPositions Temp}																												% 1 1 1
+		pt(x:X y:Y) = Position
+		% 1 1 1
+		% 1 0 1
+		% 1 1 1
+		Temp = pt(x:X-1 y:Y-1)|pt(x:X-1 y:Y)|pt(x:X-1 y:Y+1)|pt(x:X y:Y-1)|pt(x:X y:Y+1)|pt(x:X+1 y:Y-1)|pt(x:X+1 y:Y)|pt(x:X+1 y:Y+1)|nil
+		{ValidPositions Temp}
 	end
 
 	% Computes the Manhattan distance between 2 positions
@@ -599,7 +604,7 @@ in
 	in
 		pt(x:X y:Y) = Args.position
 		% Change the possibilities
-		NewPossibilities = {SonarPossibilities X Y  Player.possibilities}
+		NewPossibilities = {SonarPossibilities X Y  Player.possibilities}		
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
@@ -731,6 +736,8 @@ in
 	end
 end
 
+
+% todo delete these comments ?
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	%message to be handled
 
