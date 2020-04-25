@@ -82,10 +82,10 @@ in
 % Basic functions
 % ------------------------------------------
 	% Return pt north/... of Pos
-	fun {North Pos} pt(x:Pos.x-1 y:Pos.y  ) end
-	fun {South Pos} pt(x:Pos.x+1 y:Pos.y  ) end
-	fun {East  Pos} pt(x:Pos.x   y:Pos.y+1) end
-	fun {West  Pos} pt(x:Pos.x   y:Pos.y-1) end
+	fun {North Pos} pt(x:Pos.x 	y:Pos.y-1  ) end
+	fun {South Pos} pt(x:Pos.x	 y:Pos.y+1  ) end
+	fun {East  Pos} pt(x:Pos.x+1   y:Pos.y) end
+	fun {West  Pos} pt(x:Pos.x-1   y:Pos.y) end
 	
 	% Returns the position North/South/... of Pos 
 	fun {NewPosition Pos Direction}
@@ -237,8 +237,9 @@ in
 	%player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
 	fun{PlayersInfoPos MyInfo PlayersInfo} 
 		fun{CheckMine Mine Pos} %Mine list of mine, Pos=ennemi
+			%{System.show checkMine(pos:Pos mine:Mine)}
 			if(Mine==nil) then null
-			elseif({ManhattanDistance Mine.1.1 Pos}=<1) then Mine.1
+			elseif({ManhattanDistance Mine.1 Pos}=<1) then Mine.1
 			else {CheckMine Mine.2 Pos} end
 		end
 	in
@@ -248,12 +249,14 @@ in
 			{System.show playerPoss(Player.id Player.possibilities)}
 			if(Player.id == MyInfo.id.id) 				then {PlayersInfoPos MyInfo Next}
 			%todo verify if it is correct and impl multi poss + correct Player.possibilities
-			elseif(Player.possibilities == nil orelse Player.possibilities.2 \= nil) 	then {PlayersInfoPos MyInfo Next}
+			elseif(Player.possibilities == nil) 	then {System.show error} {System.show debug(myinfo:MyInfo playersinfo:PlayersInfo)} {System.show Player.possibilities.1} %cause error for debugging 
+			elseif (Player.possibilities.2 \= nil) 	then {PlayersInfoPos MyInfo Next}
+			
 			else Check in
 				Check = {CheckMine MyInfo.mine Player.possibilities.1}
 				case Check
-				of null		then {PlayersInfoPos MyInfo Next}
-				[] mine(_)	then CheckMine
+				of null			then {PlayersInfoPos MyInfo Next}
+				[] pt(x:_ y:_)	then Check
 				end
 			end
 		end
@@ -283,7 +286,7 @@ in
 			{System.show {List.toTuple '_' Map.1}}
 			if(Map.2\=nil) then {PrintMap Map.2} end
 		end
-	in {Time.delay 100} {System.show '----'} {PrintMap {TempMap Input.map PointList 9}} {System.show '----'}	end
+	in {Time.delay 100} {System.show '----'} {PrintMap {TempMap Input.map PointList p}} {System.show '----'}	end
 
 % ------------------------------------------
 % Initialisation
@@ -404,7 +407,7 @@ in
 			if(Possib==null) then KindFire=null NewMyInfo=MyInfo
 			else 
 				KindFire=mine(Possib.1) 
-				NewMyInfo= {MyInfoChangeVal {MyInfoChangeVal MyInfo fireM 0} mine KindFire|MyInfo.mine}
+				NewMyInfo= {MyInfoChangeVal {MyInfoChangeVal MyInfo fireM 0} mine Possib.1|MyInfo.mine}
 			end
 		end
 		NewMyInfo
@@ -419,9 +422,14 @@ in
 			else {MineExcl MineList.2 Mine} end
 		end
 	in 
+		
 		Mine = {PlayersInfoPos MyInfo PlayersInfo}
+		%{System.show Mine}
+		%{System.show MyInfo.mine}
+		%{Time.delay 1000}
+		if(Mine\=null)then
 		NewMyInfo = {MyInfoChangeVal MyInfo mine {MineExcl MyInfo.mine Mine}} %works also for null
-
+		else NewMyInfo=MyInfo end
 		NewMyInfo
 	end
 
