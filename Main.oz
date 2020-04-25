@@ -162,7 +162,7 @@ in
 		if MinePosition == null then skip
 		else 
 			{DamagingItem ID MinePosition mine}
-			{Send GuiPort removeMine(ID Mine)}
+			{Send GuiPort removeMine(ID MinePosition)} %todo in damagingitem
 		end
 	end
 
