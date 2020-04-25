@@ -6,3 +6,4 @@ tests.oz
 
 # Avoid ignoring these (due to '!')
 !PlayerBasicAI.ozf 
+!PlayerValentin.ozf
