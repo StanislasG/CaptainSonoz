@@ -15,7 +15,7 @@ define
 	NewPosition NewPositionList
 	ValidPositions
 	AccessiblePosition
-	ValidPositionsAround %ValidPositionsAroundList
+	ValidPositionsAround
 	CrossPositionCheck
 	ManhattanDistance
 	ListPtAnd ListPtExcl
@@ -141,36 +141,12 @@ in
 	%return a list of valid positions (no island, no ecxeeding borders) around a Position 
 	fun{ValidPositionsAround Position} X Y Temp in
 		pt(x:X y:Y) = Position
-		% 1 1 1
+		% 0 1 0
 		% 1 0 1
-		% 1 1 1
-		Temp = pt(x:X-1 y:Y-1)|pt(x:X-1 y:Y)|pt(x:X-1 y:Y+1)|pt(x:X y:Y-1)|pt(x:X y:Y+1)|pt(x:X+1 y:Y-1)|pt(x:X+1 y:Y)|pt(x:X+1 y:Y+1)|nil
+		% 0 1 0
+		Temp = [pt(x:X-1 y:Y) pt(x:X+1 y:Y) pt(x:X y:Y-1) pt(x:X y:Y+1)]
 		{ValidPositions Temp}
 	end
-
-/* 	%return all the points around the list Position 
-	fun{ValidPositionsAroundList Positions OwnDamage}
-		fun{AllPoss Position}
-			if(Position == nil) then nil
-			else {Append {ValidPositionsAround Position.1} {AllPoss Position.2}}
-			end
-		end
-		fun{ExclBasePos NewPositions}
-			case NewPositions 
-			of nil then nil
-			[] H|T then
-				if({List.member H Positions} orelse {List.member H T})
-					then {ExclBasePos T}
-				else H|{ExclBasePos T} end
-			end
-		end
-		Temp
-	in 
-		Temp = {AllPoss Positions}
-		%remove all positions in Temp (we want something hollow)
-		%and make each position unique
-		{ExclBasePos Temp}
-	end */
 
 	%return a position to hit or null
 	fun{CrossPositionCheck MyPos KillPos} 
@@ -184,7 +160,7 @@ in
 			[] H|T then
 				%no short distance hit, because one damage for our boat and only one for ennemi
 				if ({List.member H OwnHits}) then {Kill T OwnHits}
-				elseif({List.member KillPos {ValidPositionsAround H}}) then H
+				elseif({List.member KillPos {ValidPositionsAround H}}) then {System.show valid(kill: KillPos valid:{ValidPositionsAround H})} H
 				else {Kill T OwnHits}
 				end
 			end
@@ -528,12 +504,13 @@ in
 	%third place a mine
 	fun{FireItem KindFire MyInfo PlayersInfo} Fire MissilePt NewFire NewMyInfo in
 		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
+
 		MissilePt = {MissileFindTarget MyInfo PlayersInfo}
-		case MissilePt
-		of pt(x:_ y:_) then 
+		if (MissilePt \= null) then
 			KindFire = 	missile(MissilePt)
 			NewFire = 	{ItemRecordChangeVal MyInfo.fire missile 0}
 			NewMyInfo 	= {MyInfoChangeVal MyInfo fire NewFire}
+			%{System.show missile(MissilePt)}
 		else
 			%todo place Input.Min/MinDistanceMine
 			if(Fire.mine == 0) then KindFire=null NewMyInfo=MyInfo
@@ -561,29 +538,29 @@ in
 			Poss = PlayersInfo.1.possibilities
 			if(Poss==nil) then {System.show missileFindTargetError} {System.show Poss.1}
 			elseif(Poss.2 \= nil) then {MissileFindTarget MyInfo PlayersInfo.2} %we ignore ennemie's position
-			else Temp in 
-				Temp  = {CrossPositionCheck MyInfo.path.1 Poss.1}
-				{System.show missile(attack:MyInfo.path.1 hit:Temp ennemi:Poss.1)}
-				{Time.delay 2000}
-				Temp
+			else MissilePos in 
+				MissilePos  = {CrossPositionCheck MyInfo.path.1 Poss.1} %try to find a target to hit the ennemi
+				if(MissilePos == null) then %try find an other ennemi
+					{MissileFindTarget MyInfo PlayersInfo.2}
+				else %target found
+					{System.show missile(attack:MyInfo.path.1 hit:MissilePos ennemi:Poss.1)}
+					%{Time.delay 2000}
+					MissilePos
+				end
 			end
 		end
 	end
 
 	fun{FireMine Mine MyInfo PlayersInfo} %todo guess better, here only if 100% sure
-		NewMyInfo 
-
 		fun{MineExcl MineList Mine} %return a MineList without the Mine
 			if(MineList == nil) 		then nil
 			elseif(MineList.1 == Mine)	then MineList.2
 			else {MineExcl MineList.2 Mine} end
 		end
+		NewMyInfo 
 	in 
-		
 		Mine = {PlayersInfoPos MyInfo PlayersInfo}
-		%{System.show Mine}
-		%{System.show MyInfo.mine}
-		%{Time.delay 1000}
+		%{System.show Mine}{System.show MyInfo.mine}{Time.delay 1000}
 		if(Mine\=null)then
 		NewMyInfo = {MyInfoChangeVal MyInfo mine {MineExcl MyInfo.mine Mine}} %works also for null
 		else NewMyInfo=MyInfo end
@@ -617,7 +594,6 @@ in
 	% Move broadcasted, try to locate all players based only by elemination of possibilities 
 	% Args: arguments(direction:___)
 	fun{SayMove Args Player} NewPossibilities in 
-		% Calculate
 		NewPossibilities = {ValidPositions {NewPositionList Player.possibilities Args.direction}}
 		%{PrettyPrintMap NewPossibilities}
 		% Return
@@ -649,7 +625,6 @@ in
 	% Args: arguments() [no arguments]
 	fun{SayMinePlaced Args Player}PCharge NewCharge in
 		PCharge = Player.charge
-		% Edit new charges status
 		NewCharge = charge(mine:0 missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone)
 		% Return
 		{PlayerChangeVal Player charge NewCharge}
@@ -710,10 +685,8 @@ in
 		end
 	end
 	
-	%Args = arguments(drone:Drone id:ID answer:Answer)
-	%drone(row <x>) | drone(column <y>)
+	% Update information about the player possible positions
 	fun{SayAnswerDrone Args Player} %todo error in understanding DID (not used)
-		% Get information
 		NewPossibilities
 		Drone DID Answer
 		PPoss
@@ -738,6 +711,7 @@ in
 	% Answer with position when other player sends sonar
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	proc{SayPassingSonar ?ID ?Answer MyInfo}
+		%todo minimize info given by given position with the fewest inforamtion
 		% choose X or Y and send back information (random)
 		case ({OS.rand} mod 2)
 		of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
@@ -745,24 +719,21 @@ in
 		end
 		% send back ID
 		ID = MyInfo.id
+		%todo update player info with the infomaration that we have given 
 	end
 	
-	% Args = arguments(position:pt(x:<x> y:<y>)) with at least x or y correct
-	fun{SayAnswerSonar Args Player}
-		% Get information
-		X Y NewPossibilities
-	in
+	% Update player possibilities with at least x or y correct
+	fun{SayAnswerSonar Args Player}	X Y NewPossibilities in
 		pt(x:X y:Y) = Args.position
-		% Change the possibilities
 		NewPossibilities = {SonarPossibilities X Y  Player.possibilities}		
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
 
 	% Calculate player's position possibibilities after sonar
-	fun{SonarPossibilities X Y Poss} %todo set as private fun of sayAnswerSonar
+	fun{SonarPossibilities X Y Poss}
 		case Poss
-		of nil then nil
+		of nil then	nil
 		[] H|T then 
 			if (H.x == X orelse H.y == Y) then H|{SonarPossibilities X Y T}
 			else {SonarPossibilities X Y T}
@@ -775,23 +746,16 @@ in
 		case PlayersInfo
 		of nil then nil
 		[] player(id:PlayerID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == PlayerID) then
-				Next
-			else
-				PlayersInfo.1|{SayDeath ID Next}
+			if (ID == PlayerID) then Next
+			else PlayersInfo.1|{SayDeath ID Next}
 			end
 		end
 	end
 	
-	% Args = arguments(damage:Damage lifeLeft:LifeLeft)
-	fun{SayDamageTaken Args Player}
-		% Get information
-		Damage LifeLeft
-		PLives
-	in
+	% Update lives of a player who has taken a damage
+	fun{SayDamageTaken Args Player} Damage LifeLeft PLives in
 		PLives = Player.lives
 		arguments(damage:Damage lifeLeft:LifeLeft) = Args
-		% show error message if PLives-Damage \= LifeLeft
 		if (PLives-Damage \= LifeLeft) then {System.show error(damage:Damage lifeLeft:LifeLeft playerLives:PLives)} end
 		% Return
 		{PlayerChangeVal Player lives LifeLeft}
