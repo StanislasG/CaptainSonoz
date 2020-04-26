@@ -15,7 +15,7 @@ define
 	NewPosition NewPositionList
 	ValidPositions
 	AccessiblePosition
-	ValidPositionsAround ValidPositionsAroundList
+	ValidPositionsAround %ValidPositionsAroundList
 	CrossPositionCheck
 	ManhattanDistance
 	ListPtAnd ListPtExcl
@@ -148,36 +148,59 @@ in
 		{ValidPositions Temp}
 	end
 
-	%return all the points around the list Position 
-	fun{ValidPositionsAroundList Positions}
-		fun{AllPoss Positions}
-			if(Positions == nil) then nil
-			else {ValidPositionsAround Positions.1}|{AllPoss Positions.2}
+/* 	%return all the points around the list Position 
+	fun{ValidPositionsAroundList Positions OwnDamage}
+		fun{AllPoss Position}
+			if(Position == nil) then nil
+			else {Append {ValidPositionsAround Position.1} {AllPoss Position.2}}
+			end
+		end
+		fun{ExclBasePos NewPositions}
+			case NewPositions 
+			of nil then nil
+			[] H|T then
+				if({List.member H Positions} orelse {List.member H T})
+					then {ExclBasePos T}
+				else H|{ExclBasePos T} end
 			end
 		end
 		Temp
 	in 
 		Temp = {AllPoss Positions}
 		%remove all positions in Temp (we want something hollow)
-		{ListPtExcl Temp Positions}
-	end
+		%and make each position unique
+		{ExclBasePos Temp}
+	end */
 
 	%return a position to hit or null
-	fun{CrossPositionCheck MyPos KillPos} Min Max X Y OwnDamage TwoPoint in
-		Min=Input.minDistanceMine Max=Input.minDistanceMine pt(x:X y:Y)=MyPos
-		OwnDamage = {ValidPositionsAround MyPos}
-		TwoPoint = {Append {Append {GeneratePartRow X Y-Max Y-Min} {GeneratePartRow X Y+Min Y+Max}} {Append {GeneratePartColumn Y X-Max X-Min} {GeneratePartColumn Y X-Min X-Max}}}
-		{System.show myPos(MyPos)}
-		{System.show ownDamage(OwnDamage)}
-		{System.show twoPoint(TwoPoint)}
-		{Time.delay 2000}
-		if({List.member KillPos TwoPoint}) then KillPos %two point hit
-		else OnePoint in
-			OnePoint = {ListPtExcl {ValidPositionsAroundList TwoPoint} MyPos|OwnDamage}
-			{System.show onePoint(OnePoint)}
-			if ({List.member KillPos OnePoint}) then KillPos %one point hit
-			else null %no hit possible
+	fun{CrossPositionCheck MyPos KillPos} 
+		Min Max X Y 
+		Left Right Up Down
+		OwnDamage TwoPoint 
+		%check around every two points hit if he can make a own point hit
+		fun{Kill AroundPoints OwnHits}
+			case AroundPoints
+			of nil then null
+			[] H|T then
+				%no short distance hit, because one damage for our boat and only one for ennemi
+				if ({List.member H OwnHits}) then {Kill T OwnHits}
+				elseif({List.member KillPos {ValidPositionsAround H}}) then H
+				else {Kill T OwnHits}
+				end
 			end
+		end
+	in
+		Min=Input.minDistanceMissile Max=Input.maxDistanceMissile pt(x:X y:Y)=MyPos
+		OwnDamage = {ValidPositionsAround MyPos}
+		Left 	= {GeneratePartRow X Y-Max Y-Min}
+		Right 	= {GeneratePartRow X Y+Min Y+Max}
+		Up 		= {GeneratePartColumn Y X-Max X-Min}
+		Down 	= {GeneratePartColumn Y X+Min X+Max}
+		TwoPoint = {Append {Append Left Right} {Append Up Down}}
+		if({List.member KillPos TwoPoint}) then %two point hit
+			KillPos 
+		else %one point hit or null
+			{Kill TwoPoint OwnDamage} 
 		end
 	end
 
@@ -238,7 +261,7 @@ in
 	% Generate a list of points with the right rownumber with bound and With a Start and End
 	fun{GeneratePartRow RowNumber StartCol EndCol}
 		fun{GenerateRowCol ColumnNumber}
-			if (ColumnNumber>=EndCol orelse ColumnNumber>Input.nColumn) then nil %todo check == or =>
+			if (ColumnNumber>EndCol orelse ColumnNumber>Input.nColumn) then nil %todo check == or =>
 			else pt(x:RowNumber y:ColumnNumber) | {GenerateRowCol ColumnNumber+1} end
 		end
 	in
@@ -251,7 +274,7 @@ in
 
 	fun{GeneratePartColumn ColumnNumber StartRow EndRow}
 		fun{GeneratColRow RowNumber}
-			if (RowNumber>=EndRow orelse RowNumber>Input.nRow) then nil 
+			if (RowNumber>EndRow orelse RowNumber>Input.nRow) then nil 
 			else pt(x:RowNumber y:ColumnNumber) | {GeneratColRow RowNumber+1} end
 		end
 	in
@@ -538,8 +561,11 @@ in
 			Poss = PlayersInfo.1.possibilities
 			if(Poss==nil) then {System.show missileFindTargetError} {System.show Poss.1}
 			elseif(Poss.2 \= nil) then {MissileFindTarget MyInfo PlayersInfo.2} %we ignore ennemie's position
-			else
-				{CrossPositionCheck MyInfo.path.1 Poss.1}
+			else Temp in 
+				Temp  = {CrossPositionCheck MyInfo.path.1 Poss.1}
+				{System.show missile(attack:MyInfo.path.1 hit:Temp ennemi:Poss.1)}
+				{Time.delay 2000}
+				Temp
 			end
 		end
 	end
