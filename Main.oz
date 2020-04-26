@@ -4,6 +4,7 @@ import
 	Input
 	PlayerManager
 	System % added for System.show
+	OS
 define
 	% FUNCTIONS
 	% Initialise
@@ -12,6 +13,8 @@ define
 	% Small functions
 	ArrayReplace
 	NextPlayer
+	GenerateZeroList
+	Think
 	% In-game management
 	Move
 	Charge 
@@ -23,8 +26,10 @@ define
 	Drone
 	% Broadcasting
 	Broadcast
+
 	% Main
 	TurnByTurn
+	AllSimultaneous
 
 	% VARIABLES
 	GuiPort
@@ -69,18 +74,31 @@ in
 	fun{ArrayReplace Array Pos NewItem}
 		if(Pos<1) then {System.show pos_error} raise wrongArrayPositionException() end
 		elseif(Pos==1) then NewItem|Array.2 
-		else Array.1|{ArrayReplace Array.2 Pos-1 NewItem} end
+		else Array.1|{ArrayReplace Array.2 Pos-1 NewItem} 
+		end
 	end
 
 	fun{NextPlayer CurrentPlayer}
 		if (CurrentPlayer == Input.nbPlayer) then 1 %Id start at 1
-		else CurrentPlayer+1 end
+		else CurrentPlayer+1 
+		end
+	end
+
+	fun{GenerateZeroList N}
+		if N =< 0 then nil
+		else 0|{GenerateZeroList N-1}
+		end
+	end
+
+	proc{Think}
+		{Time.delay Input.thinkMin + ({OS.rand} mod (Input.thinkMax-Input.thinkMin))}
 	end
 	
 % -------------------------------------------------
 % In-game management
 % -------------------------------------------------
 	% Moving
+	% true if moving, false if surface
 	fun{Move CurrentPlayer}
 		ID Pos Direction
 	in
@@ -286,7 +304,52 @@ in
 			% Recursive call
 			{TurnByTurn {NextPlayer CurrentPlayer} TimeAtSurface}
 		end
+	end
 
+% -------------------------------------------------
+% Simultaneous
+% -------------------------------------------------
+	proc{AllSimultaneous}
+		proc{OneSimultaneous CurrentPlayer Surface}
+			% Dive
+			if Surface then 
+				{Time.delay Input.turnSurface * 1000}
+				{Send {List.nth Players CurrentPlayer} dive}
+			else skip
+			end
+			% Move
+			{Think}
+			if {Not {Move CurrentPlayer}} then
+				% make surface (broadcast already handled by move)
+				{OneSimultaneous CurrentPlayer true}
+			else skip
+			end
+			% Charge
+			{Think}
+			{Charge CurrentPlayer}
+			% Fire
+			{Think}
+			{Fire CurrentPlayer}
+			% Mine
+			{Think}
+			{Mine CurrentPlayer}
+			% Recursive call
+			{OneSimultaneous CurrentPlayer false}	
+		end
+		
+		% Recursive function for launching one thread for each player
+		proc{LaunchThreads CurrentPlayer}
+			if CurrentPlayer > Input.nbPlayer then skip
+			else 
+				% Launch thread with current player at surface
+				thread {OneSimultaneous CurrentPlayer true} end
+				% Recursive call for next player
+				{LaunchThreads CurrentPlayer+1}
+			end
+		end
+	in
+		% Launch thread for each player
+		{LaunchThreads 1}
 	end
 
 % ------------------------------------------
@@ -303,8 +366,11 @@ in
 	{InitPlayers Players}
 
 	% When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input)
-	if (Input.isTurnByTurn) then {TurnByTurn 1 0|0|nil}
-	else {System.show isTurnByTurn_is_not_active}
+	if (Input.isTurnByTurn) then 
+		{TurnByTurn 1 {GenerateZeroList Input.nbPlayer}}
+		{System.show program_end}
+	else 
+		{AllSimultaneous}
+		% No show program end because it will get here before program ends
 	end
-	{System.show program_end}
 end
