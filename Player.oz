@@ -19,10 +19,12 @@ define
 	Dive Surface
 	ListPtAnd ListPtExcl
 		%create list of points
-		GenerateDiagonal
 		GenerateRow GeneratePartRow
 		GenerateColumn GeneratePartColumn
 		GenerateCross ValidPositionsAround
+		GenerateDiagTopBottom
+		GenerateDiagBottomTop
+		GenerateDiamond ManhattanCross
 	MyInfoChangeVal ItemRecordChangeVal 
 	PlayerChangeVal PlayerNbChangeVal
 	PlayersInfoPos
@@ -146,10 +148,6 @@ in
 		{Number.abs Pos1.x-Pos2.x} + {Number.abs Pos1.y-Pos2.y}
 	end
 
-	proc{ManhattanCross MyPos Min Max}
-		skip
-	end
-
 	% Generates a list of all positions on the map
 	fun {GeneratePositions}
 		local 
@@ -196,16 +194,6 @@ in
 		end
 	end
 
-	%StartPt bottomLeft, EndPt topRight
-	proc{GenerateDiagonal StartPt EndPt} X1 Y1 X2 Y2 in
-		pt(x:X1 y:Y1) = StartPt
-		pt(x:X2 y:Y2) = EndPt
-		if(X1<X2 orelse Y1<Y2) then {System.show errorGenerateDiagonal}
-		else
-		skip
-		end
-	end
-
 	% Generate a list of points with the right rownumber
 	fun{GenerateRow RowNumber}	{GeneratePartRow RowNumber 1 Input.nColumn} end
 
@@ -245,6 +233,58 @@ in
 
 	% Generate a list of valid positions (no island, no ecxeeding borders) around a Position 
 	fun{ValidPositionsAround Position} {ValidPositions {GenerateCross Position 1 1}} end
+
+	% /!\ StartPt upperLeft (smallest X and y), EndPt bottomRight
+	fun{GenerateDiagTopBottom StartPt EndPt} X1 Y1 X2 Y2 in
+		pt(x:X1 y:Y1) = StartPt
+		pt(x:X2 y:Y2) = EndPt
+		if(X1>X2 orelse Y1>Y2) then {System.show errorGenerateDiagTB} nil
+		elseif (X1==X2 andthen Y1==Y2) then StartPt|nil
+		else StartPt | {GenerateDiagTopBottom pt(x:X1+1 y:Y1+1) EndPt}
+		end
+	end
+
+	% /!\ StartPt bottomLeft (smallest Y, biggest X), EndPt TopRight
+	fun{GenerateDiagBottomTop StartPt EndPt} X1 Y1 X2 Y2 in
+		pt(x:X1 y:Y1) = StartPt
+		pt(x:X2 y:Y2) = EndPt
+		if(X1<X2 orelse Y1>Y2) then {System.show errorGenerateDiagBT} nil
+		elseif (X1==X2 andthen Y1==Y2) then StartPt|nil
+		else StartPt | {GenerateDiagBottomTop pt(x:X1-1 y:Y1+1) EndPt}
+		end
+	end
+
+	% generate diamond with Size >= 0
+	% size represent the manhattan distance with reference to Pos
+	fun{GenerateDiamond StartPt Size} 
+		X Y 
+		Left Right Up Down
+		DiagLU DiagLD DiagUR DiagDR
+	in
+		if(Size==0) then StartPt|nil
+		else
+			pt(x:X y:Y) = StartPt
+			Left 	= pt(x:X y:Y-Size)		Right 	= pt(x:X y:Y+Size)
+			Up 		= pt(x:X-Size y:Y)		Down 	= pt(x:X+Size y:Y)
+			% /!\ do not count the corner twice, the upper keep start delete end and for down inverse
+			DiagLU	= {List.take {GenerateDiagBottomTop Left Up} Size}
+			DiagLD	= {List.drop {GenerateDiagTopBottom Left Down} 1}
+			DiagUR	= {List.take {GenerateDiagTopBottom Up Right} Size}
+			DiagDR	= {List.drop {GenerateDiagBottomTop Down Right} 1}
+			%return
+			{Append {Append DiagLU DiagLD} {Append DiagUR DiagDR}}
+		end
+	end
+
+	% Generate position list between bounds of Min to Max
+	fun{ManhattanCross MyPos Min Max}
+		if(Max < Min )then {System.show errorManhattanCross} nil
+		elseif(Max > Min) then
+			{Append {GenerateDiamond MyPos Max} {ManhattanCross MyPos Min Max-1}}
+		else
+			{GenerateDiamond MyPos Max}
+		end
+	end
 
 	% Return a MyInfo record with one label changed
 	fun{MyInfoChangeVal Record Label NewVal} ID Lives Path Charge Fire Mine in %add if needed
@@ -608,34 +648,33 @@ in
 		end
 	end
 
+	%to remove own hits
 	%return a position to hit or null
 	fun{FireItemCheck MyPos KillPos Type} 
-		%check around every two points hit if he can make a one point hit without hurting himself
-		fun{OnePointHit AroundPoints OwnHits}
-			case AroundPoints
-				% no point found to hit the target
-				of nil then null
-				[] H|T then
-					%no short distance hit, because one damage for our boat and only one for ennemi
-					if ({List.member H OwnHits}) then {OnePointHit T OwnHits}
-					elseif({List.member KillPos {ValidPositionsAround H}}) then {System.show valid(kill: KillPos valid:{ValidPositionsAround H})} H
-					else {OnePointHit T OwnHits}
-					end
-			end
-		end
 		Min Max
-		OwnDamage TwoPoint 
+		OwnDamage TwoPoint OnePoint
 	in
 		case Type
 			of missile then Min=Input.minDistanceMissile Max=Input.maxDistanceMissile
 			[] mine then Min=Input.minDistanceMine Max=Input.maxDistanceMine
 		end
 		OwnDamage = {ValidPositionsAround MyPos}
-		TwoPoint = {GenerateCross MyPos Min Max}
+		TwoPoint = {ManhattanCross MyPos Min Max}
+		OnePoint = {GenerateDiamond MyPos Max+1}
 		if({List.member KillPos TwoPoint}) then %two point hit
 			KillPos 
-		else %one point hit or null
-			{OnePointHit TwoPoint OwnDamage} 
+		elseif({List.member KillPos OnePoint}) then %one point hit
+			%two possible shots
+			TargetPts in
+			TargetPts = {ValidPositionsAround KillPos}
+			%todo better choice
+			%try to find shooting point, never goes to check the fourth point
+			if({List.member TargetPts.1 TwoPoint}) then TargetPts.1
+			elseif({List.member TargetPts.2 TwoPoint}) then TargetPts.2.1
+			else TargetPts.2.2.1
+			end
+		else
+			null
 		end
 	end
 
@@ -647,6 +686,7 @@ in
 			else {MineExcl MineList.2 Mine} end
 		end
 
+		%todo better to find two points hit
 		%return <pos> or null
 		fun{FindMine MineList TargetOrder}
 			% no mine found
@@ -657,8 +697,6 @@ in
 				MyPos = MyInfo.path.1
 				EnnemiPos = TargetOrder.1.possibilities.1 %assume only one poss
 				CurrentMine = MineList.1 %CurrentMine = <pos>
-				{System.show currentMine(CurrentMine)}
-				{System.show mineList(MineList)}
 				Explosion = CurrentMine|{ValidPositionsAround CurrentMine}
 				%do not fire even if the ennemi loses more lives than we do
 				if({List.member MyPos Explosion}) then {FindMine MineList.2 TargetOrder}
