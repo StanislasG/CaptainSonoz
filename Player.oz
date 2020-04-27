@@ -83,7 +83,7 @@ in
 % 		- lives: number of lives of the submarine
 % 		- possibilities: list of possible points for player's position
 % 		- surface: true or false
-% 		- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
+% 		- charge: 0 if the item is not charged and 1 if it is charged
 
 
 % ------------------------------------------
@@ -520,7 +520,14 @@ in
 				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
 				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt|MyInfo.mine}
 			end
-
+		elseif(Fire.mine == 1) then MinePt in
+			MinePt = {ValidPositionsAround MyInfo.path.1}
+			if(MinePt==null) then KindFire=null NewMyInfo=MyInfo
+			else NewFire in
+				KindFire	= mine(MinePt.1)
+				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
+				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt|MyInfo.mine}
+			end
 		else 
 			{System.show doNothing}
 			KindFire = null

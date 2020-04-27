@@ -188,7 +188,7 @@ in
 			[] mine(Position) then
 				{Broadcast sayMinePlaced(ID)}
 				{Send GuiPort putMine(ID Position)}
-			% Missile : notify all players and send back answers if damaged players. Used proc "DamagingItem" to handle recursivity
+			% Missile : notify all players and send back answers if damaged players. Used proc 'DamagingItem' to handle recursivity
 			[] missile(Position) then
 				{DamagingItem ID Position missile}
 			[] sonar then
@@ -312,7 +312,7 @@ in
 	proc{TurnByTurn CurrentPlayer TimeAtSurface}
 		% Check if players are still alive
 		if {CountPlayersAlive} =< 1 then
-			{System.show "End of the game"}
+			{System.show 'End of the game'}
 		else
 			% Set delay
 			{Time.delay Input.guiDelay}
@@ -355,7 +355,7 @@ in
 		proc{OneSimultaneous CurrentPlayer Surface}
 			% Check if player is dead
 			if {IsDead {List.nth Players CurrentPlayer}} then 
-				{OS.show playerIsDead(CurrentPlayer)}
+				{System.show playerIsDead(CurrentPlayer)}
 			else
 				% Dive
 				if Surface then 
@@ -389,7 +389,9 @@ in
 			if CurrentPlayer > Input.nbPlayer then skip
 			else 
 				% Launch thread with current player at surface
-				thread {OneSimultaneous CurrentPlayer true} end
+				thread 
+					{OneSimultaneous CurrentPlayer true}
+				end
 				% Recursive call for next player
 				{LaunchThreads CurrentPlayer+1}
 			end
