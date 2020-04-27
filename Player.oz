@@ -658,7 +658,7 @@ in
 	end
 	
 	% Edit MyInfo on mine explosion
-	%todo either combine SayMineExplodeMyInfo and SayMissileExplodeMyInfo or find something to sistinguish
+	%todo either combine SayMineExplodeMyInfo and SayMissileExplodeMyInfo or find something to distinguish
 	fun{SayMineExplodeMyInfo MyInfo Pos Message} DamageTaken in
 		% Compute damage taken
 		case {ManhattanDistance MyInfo.path.1 Pos}
@@ -795,7 +795,8 @@ in
 			NewMyInfo = {FireMine Mine MyInfo PlayersInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 
-		[]isDead(?Answer)|T then 
+		[]isDead(?Answer)|T then
+			Answer = (MyInfo.lives == 0)
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayMove(ID Direction)|T then 

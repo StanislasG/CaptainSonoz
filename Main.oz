@@ -10,6 +10,9 @@ define
 	% Initialise
 	CreatePlayers
 	InitPlayers
+	% End game
+	CountPlayersAlive
+	IsDead
 	% Small functions
 	ArrayReplace
 	NextPlayer
@@ -39,7 +42,7 @@ in
 % -------------------------------------------------
 % Initialisation
 % -------------------------------------------------
-		% Create a list of players
+	% Create a list of players
 	fun {CreatePlayers}
 		local 
 			fun {CreatePlayerList ID NPlayers Players Colors}
@@ -68,6 +71,34 @@ in
 		end
 	end
 
+% -------------------------------------------------
+% End game
+% -------------------------------------------------
+	% Check how many players are alive
+	fun{CountPlayersAlive}
+		fun{CountPlayersAliveRecursive Players Count}
+			case Players
+			of nil then Count
+			[] H|T then 
+				if {IsDead H} then {CountPlayersAliveRecursive T Count}
+				else {CountPlayersAliveRecursive T Count+1}
+				end
+			end
+		end
+	in
+		{CountPlayersAliveRecursive Players 0}
+	end
+
+	% Check if player is dead
+	fun{IsDead Player}
+		Answer
+	in
+		% Ask if dead
+		{Send Player isDead(Answer)}
+		{Wait Answer}
+		% Return answer
+		Answer
+	end
 % -------------------------------------------------
 % Small functions
 % -------------------------------------------------
@@ -179,8 +210,8 @@ in
 		% Handle answer
 		if MinePosition == null then skip
 		else 
+			{Send GuiPort removeMine(ID MinePosition)}
 			{DamagingItem ID MinePosition mine}
-			{Send GuiPort removeMine(ID MinePosition)} %todo in damagingitem
 		end
 	end
 
@@ -201,9 +232,15 @@ in
 					[] mine then {Send Player sayMineExplode(ID Position ?Message)}
 					end
 					{Wait Message}
-					% Broadcast information
-					if Message == null then skip
-					else {Broadcast Message}
+					% Broadcast information and update GUI
+					case Message
+					of null then skip
+					[] sayDamageTaken(PlayerID DamageTaken LifeLeft) then 
+						{Broadcast Message}
+						{Send GuiPort lifeUpdate(PlayerID LifeLeft)}
+					[] sayDeath(PlayerID) then
+						{Broadcast Message}
+						{Send GuiPort removePlayer(PlayerID)}
 					end
 				end
 				{DamagingItemRecursive ID Position KindItem T}
@@ -273,36 +310,41 @@ in
 % Turn-by-turn
 % -------------------------------------------------
 	proc{TurnByTurn CurrentPlayer TimeAtSurface}
-		% Set delay
-		{Time.delay Input.guiDelay}
-		
-		% If the player is at surface and can dive
-		if({List.nth TimeAtSurface CurrentPlayer} == Input.turnSurface) then
-			{Send {List.nth Players CurrentPlayer} dive}
-			% Recursive call
-			{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer ~1}}
-		
-		% If the player is at surface but can't dive
-		elseif ({List.nth TimeAtSurface CurrentPlayer} >= 0 andthen {List.nth TimeAtSurface CurrentPlayer} < Input.turnSurface) then
-			% Recursive call
-			{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer ({List.nth TimeAtSurface CurrentPlayer}+1)}}
-		
-		% If the player is under water
+		% Check if players are still alive
+		if {CountPlayersAlive} =< 1 then
+			{System.show "End of the game"}
 		else
-			% Player's turn is over
-			if {Not {Move CurrentPlayer}} then 
-				{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer 0}} % todo 0 or 1, do not understand the rules
-			% Player's turn continues
+			% Set delay
+			{Time.delay Input.guiDelay}
+			
+			% If the player is at surface and can dive
+			if({List.nth TimeAtSurface CurrentPlayer} == Input.turnSurface) then
+				{Send {List.nth Players CurrentPlayer} dive}
+				% Recursive call
+				{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer ~1}}
+			
+			% If the player is at surface but can't dive
+			elseif ({List.nth TimeAtSurface CurrentPlayer} >= 0 andthen {List.nth TimeAtSurface CurrentPlayer} < Input.turnSurface) then
+				% Recursive call
+				{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer ({List.nth TimeAtSurface CurrentPlayer}+1)}}
+			
+			% If the player is under water
 			else
-				% Charge an item
-				{Charge CurrentPlayer}
-				% Fire an item
-				{Fire CurrentPlayer}
-				% Mine explosion
-				{Mine CurrentPlayer}
+				% Player's turn is over
+				if {Not {Move CurrentPlayer}} then 
+					{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer 0}} % todo 0 or 1, do not understand the rules
+				% Player's turn continues
+				else
+					% Charge an item
+					{Charge CurrentPlayer}
+					% Fire an item
+					{Fire CurrentPlayer}
+					% Mine explosion
+					{Mine CurrentPlayer}
+				end
+				% Recursive call
+				{TurnByTurn {NextPlayer CurrentPlayer} TimeAtSurface}
 			end
-			% Recursive call
-			{TurnByTurn {NextPlayer CurrentPlayer} TimeAtSurface}
 		end
 	end
 
@@ -311,30 +353,35 @@ in
 % -------------------------------------------------
 	proc{AllSimultaneous}
 		proc{OneSimultaneous CurrentPlayer Surface}
-			% Dive
-			if Surface then 
-				{Time.delay Input.turnSurface * 1000}
-				{Send {List.nth Players CurrentPlayer} dive}
-			else skip
+			% Check if player is dead
+			if {IsDead {List.nth Players CurrentPlayer}} then 
+				{OS.show playerIsDead(CurrentPlayer)}
+			else
+				% Dive
+				if Surface then 
+					{Time.delay Input.turnSurface * 1000}
+					{Send {List.nth Players CurrentPlayer} dive}
+				else skip
+				end
+				% Move
+				{Think}
+				if {Not {Move CurrentPlayer}} then
+					% make surface (broadcast already handled by move)
+					{OneSimultaneous CurrentPlayer true}
+				else skip
+				end
+				% Charge
+				{Think}
+				{Charge CurrentPlayer}
+				% Fire
+				{Think}
+				{Fire CurrentPlayer}
+				% Mine
+				{Think}
+				{Mine CurrentPlayer}
+				% Recursive call
+				{OneSimultaneous CurrentPlayer false}
 			end
-			% Move
-			{Think}
-			if {Not {Move CurrentPlayer}} then
-				% make surface (broadcast already handled by move)
-				{OneSimultaneous CurrentPlayer true}
-			else skip
-			end
-			% Charge
-			{Think}
-			{Charge CurrentPlayer}
-			% Fire
-			{Think}
-			{Fire CurrentPlayer}
-			% Mine
-			{Think}
-			{Mine CurrentPlayer}
-			% Recursive call
-			{OneSimultaneous CurrentPlayer false}	
 		end
 		
 		% Recursive function for launching one thread for each player
@@ -359,17 +406,16 @@ in
 	% Launch interface
 	GuiPort = {GUI.portWindow}
 	{Send GuiPort buildWindow}
-    
 	% Initialise players
 	Players = {CreatePlayers}
 	% Ask every player to set up (choose its initial point, they all are at the surface at this time)
 	{InitPlayers Players}
 
 	% When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input)
-	if (Input.isTurnByTurn) then 
+	if (Input.isTurnByTurn) then
 		{TurnByTurn 1 {GenerateZeroList Input.nbPlayer}}
 		{System.show program_end}
-	else 
+	else
 		{AllSimultaneous}
 		% No show program end because it will get here before program ends
 	end
