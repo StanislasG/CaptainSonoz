@@ -15,7 +15,6 @@ define
 	NewPosition NewPositionList
 	ValidPositions
 	AccessiblePosition
-	CrossPositionCheck
 	ManhattanDistance
 	Dive Surface
 	ListPtAnd ListPtExcl
@@ -138,33 +137,6 @@ in
 			else 1
 			end
 		[] _ then nil
-		end
-	end
-
-	%return a position to hit or null
-	fun{CrossPositionCheck MyPos KillPos} 
-		%check around every two points hit if he can make a own point hit
-		fun{OnePointHit AroundPoints OwnHits}
-			case AroundPoints
-			of nil then null
-			[] H|T then
-				%no short distance hit, because one damage for our boat and only one for ennemi
-				if ({List.member H OwnHits}) then {OnePointHit T OwnHits}
-				elseif({List.member KillPos {ValidPositionsAround H}}) then {System.show valid(kill: KillPos valid:{ValidPositionsAround H})} H
-				else {OnePointHit T OwnHits}
-				end
-			end
-		end
-		Min Max
-		OwnDamage TwoPoint 
-	in
-		Min=Input.minDistanceMissile Max=Input.maxDistanceMissile
-		OwnDamage = {ValidPositionsAround MyPos}
-		TwoPoint = {GenerateCross MyPos Min Max}
-		if({List.member KillPos TwoPoint}) then %two point hit
-			KillPos 
-		else %one point hit or null
-			{OnePointHit TwoPoint OwnDamage} 
 		end
 	end
 
@@ -496,12 +468,12 @@ in
 		%try to charge/produce an item
 		if({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
 		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
-		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})	then skip
+		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})	then skip
 		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})	then skip
 		end
 		%bind
 		KindItem = Produced
-		%{System.show chargeItem(Produced NewMyInfo)}
+		{System.show chargeItem(Produced NewMyInfo.charge NewMyInfo.fire)}
 		%return
 		NewMyInfo
 	end
@@ -515,8 +487,21 @@ in
 		%list of record where to shoot order with as first fewest lives
 		TargetOrder = {FindTarget MyInfo PlayersInfo}
 		%{System.show TargetOrder}
-
-		if(Fire.missile==1 andthen TargetOrder\=nil) then MissilePt in
+		if(Fire.sonar==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
+			NewFire in
+			{System.show sonarUsed}
+			KindFire = sonar
+			NewFire		= {ItemRecordChangeVal MyInfo.fire sonar 0}
+			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
+		
+		elseif(Fire.drone==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
+			NewFire in
+			{System.show droneUsed}
+			KindFire = drone(row 1)
+			NewFire		= {ItemRecordChangeVal MyInfo.fire drone 0}
+			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
+		
+		elseif(Fire.missile==1 andthen TargetOrder\=nil) then MissilePt in
 			MissilePt = {FireItemSearch MyInfo TargetOrder missile}
 			if (MissilePt==null) then KindFire=null NewMyInfo=MyInfo 
 			else NewFire in
@@ -526,18 +511,18 @@ in
 			end
 
 		%todo if not on a player, try to maximise the number of potential hits
-		elseif(Fire.mine == 1) then MinePt in
+		elseif(Fire.mine == 1 andthen TargetOrder\=nil) then MinePt in
 			%best option direct hit
 			MinePt = {FireItemSearch MyInfo TargetOrder mine}
 			if(MinePt==null) then KindFire=null NewMyInfo=MyInfo
 			else NewFire in
-				KindFire	= MinePt
+				KindFire	= mine(MinePt)
 				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
 				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt|MyInfo.mine}
 			end
 
 		else 
-			%{System.show doNothing}
+			{System.show doNothing}
 			KindFire = null
 			NewMyInfo = MyInfo
 		end
@@ -552,6 +537,8 @@ in
 			if(Players == nil) then nil
 			%check if its not us
 			elseif(MyInfo.id.id == Players.1.id) then {FindTargetNotOrd Players.2}
+			%check if not dead
+			elseif(Players.1.lives==0) then {FindTargetNotOrd Players.2}
 			%target possible possitions error 
 			elseif(Players.1.possibilities == nil) then {System.show errorPossibilities(myInfo:MyInfo ennemi:Players.1)} {FindTargetNotOrd Players.2}
 			%target found
@@ -682,6 +669,8 @@ in
 	fun {PlayerModification WantedID PlayersInfo Fun Args}
 		case PlayersInfo
 		of nil then nil
+		%dead player
+		[] null|Next then PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
 		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
 			if (ID == WantedID.id) then %todo change in StartPlayer
 				{Fun Args PlayersInfo.1}|Next
@@ -883,13 +872,13 @@ in
 		[]chargeItem(?ID ?KindItem)|T then NewMyInfo in
 			ID=MyInfo.id
 			NewMyInfo = {ChargeItem KindItem MyInfo}
-			{System.show chargeItem(KindItem)}
+			%{System.show chargeItem(KindItem)}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]fireItem(?ID ?KindFire)|T then NewMyInfo in
 			ID = MyInfo.id
 			NewMyInfo = {FireItem KindFire MyInfo PlayersInfo}
-			{System.show fireItem(KindFire)}
+			%{System.show fireItem(KindFire)}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]fireMine(?ID ?Mine)|T then NewMyInfo in
