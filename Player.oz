@@ -271,10 +271,10 @@ in
 				end
 			[] fire(mine:Mine missile:Missile sonar:Sonar drone:Drone) then
 				case Label 
-					of mine 	then charge(mine:NewVal missile:Missile sonar:Sonar drone:Drone)
-					[] missile 	then charge(mine:Mine missile:NewVal sonar:Sonar drone:Drone)
-					[] sonar	then charge(mine:Mine missile:Missile sonar:NewVal drone:Drone)
-					[] drone	then charge(mine:Mine missile:Missile sonar:Sonar drone:NewVal)
+					of mine 	then fire(mine:NewVal missile:Missile sonar:Sonar drone:Drone)
+					[] missile 	then fire(mine:Mine missile:NewVal sonar:Sonar drone:Drone)
+					[] sonar	then fire(mine:Mine missile:Missile sonar:NewVal drone:Drone)
+					[] drone	then fire(mine:Mine missile:Missile sonar:Sonar drone:NewVal)
 				end
 		end
 	end
@@ -726,22 +726,17 @@ in
 	% Args: arguments(itemKind)
 	fun{SayCharge Args Player} PCharge NewCharge in
 		PCharge = Player.charge
-		% Calculate
-		case Args.itemKind
-		of mine    then NewCharge = charge(mine:PCharge.mine+1 missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone)
-		[] missile then NewCharge = charge(mine:PCharge.mine missile:PCharge.missile+1 sonar:PCharge.sonar drone:PCharge.drone)
-		[] sonar   then NewCharge = charge(mine:PCharge.mine missile:PCharge.missile sonar:PCharge.sonar+1 drone:PCharge.drone)
-		[] drone   then NewCharge = charge(mine:PCharge.mine missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone+1)
-		end
+		% Edit charge
+		NewCharge = {ItemRecordChangeVal PCharge Args.itemKind 1}
 		% Return
 		{PlayerChangeVal Player charge NewCharge}
 	end
 	
 	% Update mine charge status when mine is placed
 	% Args: arguments() [no arguments]
-	fun{SayMinePlaced Args Player}PCharge NewCharge in
-		PCharge = Player.charge
-		NewCharge = charge(mine:0 missile:PCharge.missile sonar:PCharge.sonar drone:PCharge.drone)
+	fun{SayMinePlaced Args Player} NewCharge in
+		% Edit charge
+		NewCharge = {ItemRecordChangeVal Player.charge mine 0}
 		% Return
 		{PlayerChangeVal Player charge NewCharge}
 	end
@@ -765,10 +760,9 @@ in
 
 	% On missile explosion, edit missile charge status
 	% Args: arguments() [no arguments]
-	fun{SayMissileExplodeMissileStatus Args Player} PCharge NewCharge in
-		PCharge = Player.charge
-		% Edit new charges status
-		NewCharge = charge(mine:PCharge.mine missile:0 sonar:PCharge.sonar drone:PCharge.drone)
+	fun{SayMissileExplodeMissileStatus Args Player} NewCharge in
+		% Edit charge
+		NewCharge = {ItemRecordChangeVal Player.charge missile 0}
 		% Return
 		{PlayerChangeVal Player charge NewCharge}
 	end
@@ -793,12 +787,20 @@ in
 	
 	% Passing drone 
 	%todo add the info to our player in PlayersInfo
-	proc{SayPassingDrone Drone ?ID ?Answer MyInfo}
+	% Args : arguments(drone:Drone id:?ID answer:?Answer myInfo:MyInfo)
+	fun{SayPassingDrone Args Player} Drone ID Answer MyInfo NewCharge in
+		% Get info
+		arguments(drone:Drone id:ID answer:Answer myInfo:MyInfo) = Args
+		% Return info
 		ID = MyInfo.id
 		case Drone
 			of drone(row X) 	then Answer=(MyInfo.path.1.x == X)
 			[] drone(column Y)	then Answer=(MyInfo.path.1.y == Y)
 		end
+		% Edit charge
+		NewCharge = {ItemRecordChangeVal Player.charge drone 0}
+		% Return
+		{PlayerChangeVal Player charge NewCharge}
 	end
 	
 	% Update information about the player possible positions
@@ -826,16 +828,23 @@ in
 	
 	% Answer with position when other player sends sonar
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
-	proc{SayPassingSonar ?ID ?Answer MyInfo}
-		%todo minimize info given by given position with the fewest inforamtion
+	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
+	fun{SayPassingSonar Args Player} ID Answer MyInfo NewCharge in
+		% Get info
+		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
+		% Return info
+		ID = MyInfo.id
+		%todo minimize info given by given position with the fewest information
+		%todo update player info with the infomaration that we have given 
 		% choose X or Y and send back information (random)
 		case ({OS.rand} mod 2)
 		of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
 		[] 1 then Answer = pt(x:(({OS.rand} mod Input.nColumn)+1) y:MyInfo.path.1.y)
 		end
-		% send back ID
-		ID = MyInfo.id
-		%todo update player info with the infomaration that we have given 
+		% Edit charge
+		NewCharge = {ItemRecordChangeVal Player.charge sonar 0}
+		% Return
+		{PlayerChangeVal Player charge NewCharge}
 	end
 	
 	% Update player possibilities with at least x or y correct
@@ -940,16 +949,14 @@ in
 			{TreatStream T {SayMineExplodeMyInfo MyInfo Position Message} PlayersInfo}
 		
 		[]sayPassingDrone(Drone ?ID ?Answer)|T then 
-			{SayPassingDrone Drone ID Answer MyInfo}
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayPassingDrone arguments(drone:Drone id:ID answer:Answer myInfo:MyInfo)}}
 		
 		[]sayAnswerDrone(Drone ID Answer)|T then 
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerDrone arguments(drone:Drone id:ID answer:Answer)}}
 		
 		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
 		[]sayPassingSonar(?ID ?Answer)|T then
-			{SayPassingSonar ID Answer MyInfo}
-			{TreatStream T MyInfo PlayersInfo}
+			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayPassingSonar arguments(id:ID answer:Answer myInfo:MyInfo)}}
 		
 		[]sayAnswerSonar(ID Answer)|T then
 			%todo problems might occur if answer isn't "pt(x:<x> y:<y>)" but normally it's correct
