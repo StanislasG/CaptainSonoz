@@ -300,7 +300,7 @@ in
 	end
 
 	% Return an ItemRecord with one label changed
-	fun{ItemRecordChangeVal Rec Label NewVal} Mine Missile Sonar Drone in
+	fun{ItemRecordChangeVal Rec Label NewVal}
 		case Rec 
 			of charge(mine:Mine missile:Missile sonar:Sonar drone:Drone) then
 				case Label 
