@@ -15,10 +15,11 @@ define
 	NewPosition NewPositionList
 	ValidPositions
 	AccessiblePosition
-	ManhattanDistance
+	ManhattanDistance ManhattanCross
 	Dive Surface
 	ListPtAnd ListPtExcl
 		%create list of points
+		GenerateDiagonal
 		GenerateRow GeneratePartRow
 		GenerateColumn GeneratePartColumn
 		GenerateCross ValidPositionsAround
@@ -145,6 +146,10 @@ in
 		{Number.abs Pos1.x-Pos2.x} + {Number.abs Pos1.y-Pos2.y}
 	end
 
+	proc{ManhattanCross MyPos Min Max}
+		skip
+	end
+
 	% Generates a list of all positions on the map
 	fun {GeneratePositions}
 		local 
@@ -188,6 +193,16 @@ in
 			elseif(R1>R2)	then {ListPtAnd ListRef T2}
 			elseif(R1<R2)	then pt(x:R1 y:C1)|{ListPtAnd T1 ListExcl}
 			else {ListPtAnd T1 T2} end %same point, must be excl
+		end
+	end
+
+	%StartPt bottomLeft, EndPt topRight
+	proc{GenerateDiagonal StartPt EndPt} X1 Y1 X2 Y2 in
+		pt(x:X1 y:Y1) = StartPt
+		pt(x:X2 y:Y2) = EndPt
+		if(X1<X2 orelse Y1<Y2) then {System.show errorGenerateDiagonal}
+		else
+		skip
 		end
 	end
 
@@ -487,6 +502,7 @@ in
 		%list of record where to shoot order with as first fewest lives
 		TargetOrder = {FindTarget MyInfo PlayersInfo}
 		%{System.show TargetOrder}
+		%{System.show TargetOrder}
 		if(Fire.sonar==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
 			NewFire in
 			{System.show sonarUsed}
@@ -510,7 +526,6 @@ in
 				NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
 			end
 
-		%todo if not on a player, try to maximise the number of potential hits
 		elseif(Fire.mine == 1 andthen TargetOrder\=nil) then MinePt in
 			%best option direct hit
 			MinePt = {FireItemSearch MyInfo TargetOrder mine}
@@ -519,6 +534,16 @@ in
 				KindFire	= mine(MinePt)
 				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
 				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt|MyInfo.mine}
+			end
+
+		%todo if not on a player, try to maximise the number of potential hits
+		elseif(Fire.mine == 1) then MinePt in
+			MinePt = {ValidPositionsAround MyInfo.path.1}
+			if(MinePt==null) then KindFire=null NewMyInfo=MyInfo
+			else NewFire in
+				KindFire	= mine(MinePt.1)
+				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
+				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt.1|MyInfo.mine}
 			end
 
 		else 
@@ -550,7 +575,7 @@ in
 		%sort the player first fewest lives still alive
 		fun{Sort RecordList}
 			fun{Sort2 RecordList2 Lives}
-				if(Lives>=Input.maxDamage) then nil
+				if(Lives>Input.maxDamage) then nil
 				elseif(RecordList2==nil) then {Sort2 RecordList Lives+1}
 				elseif(RecordList2.1.lives == Lives) then RecordList2.1|{Sort2 RecordList2.2 Lives}
 				else {Sort2 RecordList2.2 Lives} end
@@ -632,6 +657,8 @@ in
 				MyPos = MyInfo.path.1
 				EnnemiPos = TargetOrder.1.possibilities.1 %assume only one poss
 				CurrentMine = MineList.1 %CurrentMine = <pos>
+				{System.show currentMine(CurrentMine)}
+				{System.show mineList(MineList)}
 				Explosion = CurrentMine|{ValidPositionsAround CurrentMine}
 				%do not fire even if the ennemi loses more lives than we do
 				if({List.member MyPos Explosion}) then {FindMine MineList.2 TargetOrder}
