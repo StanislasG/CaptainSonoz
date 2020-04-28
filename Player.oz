@@ -521,7 +521,7 @@ in
 		end
 	in
 		%try to charge/produce an item
-		if({FindTarget MyInfo PlayersInfo} == nil)	then Test in Test = {ChargeItemSpec drone ?Produced ?NewMyInfo}
+		if({FindTarget MyInfo PlayersInfo} == nil)	then Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
 		elseif({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
 		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
 		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})	then skip
@@ -890,7 +890,68 @@ in
 	% Answer with position when other player sends sonar
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
-	fun{SayPassingSonar Args Player} ID Answer MyInfo NewCharge in
+	fun{SayPassingSonar Args Player} 
+
+		fun{InfoLine Type Number Poss} Line Tmp in
+			case Type 
+				of row 		then Line = {GenerateRow Number}
+				[] column 	then Line = {GenerateColumn Number}
+			end
+			Tmp = {ListPtAnd Poss Line}
+			%{System.show infoLine(Type Number Poss {List.length Tmp})}
+			{List.length Tmp}
+		end
+
+		fun{InfoRow Poss}
+			fun{InfoRowIn Number}
+				if(Number>Input.nRow) then nil
+				else {InfoLine row Number Poss}|{InfoRowIn Number+1} end
+			end
+		in {InfoRowIn 1} end
+
+		fun{InfoCol Poss}
+			fun{InfoColIn Number}
+				if(Number>Input.nColumn) then nil
+				else {InfoLine column Number Poss}|{InfoColIn Number+1} end
+			end
+		in {InfoColIn 1} end
+
+		fun{GetPos List Value}
+			fun{GetPosIn List Value Nb}
+				if(List.1 == Value) then Nb
+				else{GetPosIn List.2 Value Nb+1} end
+			end
+		in {GetPosIn List Value 1} end
+
+		% return the Line number that is the biggest (without LineNb as candidate)
+		fun{MaxLine ListLine LineNb} ListNoLineNb Biggest Check LineCandidate in
+			ListNoLineNb = {List.subtract ListLine {List.nth ListLine LineNb}}
+			Biggest = {Sort  ListNoLineNb Value.'>'}.1
+			LineCandidate = {GetPos ListNoLineNb Biggest}
+			if(LineCandidate < LineNb) then LineCandidate
+			else LineCandidate+1 end
+		end
+
+		fun{MinimizeInfo Pt Poss} X Y Rows Cols MaxRow MaxCol RowTrue ColTrue in
+			pt(x:X y:Y) = Pt
+			Rows 	= {InfoRow Poss}
+			Cols 	= {InfoCol Poss}
+			%{System.show inMini(rows:Rows Cols)}
+			MaxRow	= {MaxLine Rows X}
+			MaxCol	= {MaxLine Cols Y}
+			%{System.show inMini(maxRows:MaxRow MaxCol)}
+			RowTrue	= {List.nth Rows X} + {List.nth Cols MaxCol}
+			ColTrue	= {List.nth Cols Y} + {List.nth Rows MaxRow} 
+			{System.show possAfter(row:RowTrue col:ColTrue )}
+			if(RowTrue > ColTrue) then
+				pt(x:X y:MaxCol)
+			else 
+				pt(x:MaxRow y:Y)
+			end
+		end		
+	
+		ID Answer MyInfo NewCharge 
+	in
 		%{System.show sayPassingSonar(Args Player)}
 		% Get info
 		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
@@ -899,10 +960,16 @@ in
 		%todo minimize info given by given position with the fewest information
 		%todo update player info with the infomaration that we have given 
 		% choose X or Y and send back information (random)
+		%random version
 		case ({OS.rand} mod 2)
 		of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
 		[] 1 then Answer = pt(x:(({OS.rand} mod Input.nColumn)+1) y:MyInfo.path.1.y)
 		end
+
+		%{System.show sayPassingSonar}
+		{System.show mini(id:ID poss:{List.length Player.possibilities} result:{MinimizeInfo MyInfo.path.1 Player.possibilities})}
+		
+
 		% Edit charge
 		NewCharge = {ItemRecordChangeVal Player.charge sonar 0}
 		% Return

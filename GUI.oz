@@ -138,12 +138,17 @@ in
 	%todo better animation
 	fun{Explosion Position}
 		fun{$ Grid State}
-			Color X Y Boom
-		in
-			Color = State.id.color
-			pt(x:X y:Y) = Position
-			Boom = label(text:"boom" borderwidth:5 relief:raised width:1 height:1 bg:Color)
-			{Grid.grid configure(Boom row:X+1 column:Y+1 sticky:wesn)}
+			thread			
+				Color X Y Boom
+				HandleBoom
+			in
+				Color = State.id.color
+				pt(x:X y:Y) = Position
+				Boom = label(text:"boom" handle:HandleBoom borderwidth:5 relief:raised width:1 height:1 bg:Color)
+				{Grid.grid configure(Boom row:X+1 column:Y+1 sticky:wesn)}
+				{Time.delay Input.guiDelay}
+				{Grid.grid remove(HandleBoom)}
+			end
 			State
 		end
 	end
