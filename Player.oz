@@ -37,10 +37,14 @@ define
 	GeneratePositions
 
 	% In-game management functions
-	Move FindPath ChooseDirection
+	Move
+		FindPath
+		ChooseDirection
 	ChargeItem 
 	FireItem 
+		FindTargetNotOrd
 		FindTarget
+		FindClosestTarget
 		FireItemSearch
 		FireItemCheck
 	FireMine
@@ -413,7 +417,7 @@ in
 			ID = MyInfo.id
 			Pos = pt(x:X y:Y)
 			% return updated info with position
-      {MyInfoChangeVal MyInfo path Pos|nil}
+			{MyInfoChangeVal MyInfo path Pos|nil}
 		end
 	end
 
@@ -439,7 +443,7 @@ in
 % In-game management - Send Information
 % ------------------------------------------
 	% Moving randomly
-	fun {Move ID Pos Direction MyInfo}
+	fun {Move Pos Direction MyInfo PlayersInfo}
 		P Possib N S E W
 	in		
 		% Calculate useful info
@@ -453,8 +457,8 @@ in
 		Possib = directions(north:N east:E south:S west:W)
 
 		% Assign values to unassigned var
-		Direction = {FindPath P MyInfo.path Possib}
-		ID = MyInfo.id
+
+		Direction = {FindPath P MyInfo.path Possib MyInfo PlayersInfo}
 		Pos = {NewPosition P Direction}
 
 		% Return modified MyInfo
@@ -464,7 +468,7 @@ in
 	end
 
 	% Find a valid path
-	fun {FindPath Pos Path Possib}
+	fun {FindPath Pos Path Possib MyInfo PlayersInfo}
 		N S E W 
 	in
 		directions(north:N east:E south:S west:W) = Possib
@@ -472,35 +476,50 @@ in
 		if N#S#E#W == 0#0#0#0
 			then surface
 		else
-			if Path == nil then {ChooseDirection Possib}
-			elseif Path.1 == {North Pos} then {FindPath Pos Path.2 directions(north:0	east:E south:S west:W)}
-			elseif Path.1 == {East  Pos} then {FindPath Pos Path.2 directions(north:N	east:0 south:S west:W)}
-			elseif Path.1 == {South Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:0 west:W)}
-			elseif Path.1 == {West  Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:S west:0)}
-			else {FindPath Pos Path.2 Possib}
+			if Path == nil then {ChooseDirection Possib MyInfo PlayersInfo false}
+			elseif Path.1 == {North Pos} then {FindPath Pos Path.2 directions(north:0	east:E south:S west:W) MyInfo PlayersInfo}
+			elseif Path.1 == {East  Pos} then {FindPath Pos Path.2 directions(north:N	east:0 south:S west:W) MyInfo PlayersInfo}
+			elseif Path.1 == {South Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:0 west:W) MyInfo PlayersInfo}
+			elseif Path.1 == {West  Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:S west:0) MyInfo PlayersInfo}
+			else {FindPath Pos Path.2 Possib MyInfo PlayersInfo}
 			end
 		end
 	end
 
 	% Choose a random direction
-	fun {ChooseDirection Possib}
-		case ({OS.rand} mod 4)
-		of 0 then if Possib.north == 1 then north else {ChooseDirection Possib} end
-		[] 1 then if Possib.east  == 1 then east  else {ChooseDirection Possib} end
-		[] 2 then if Possib.south == 1 then south else {ChooseDirection Possib} end
-		[] 3 then if Possib.west  == 1 then west  else {ChooseDirection Possib} end
+	fun {ChooseDirection Possib MyInfo PlayersInfo TryOnce} ClosestEnnemiList X Y Xe Ye Choices in
+		ClosestEnnemiList = {FindClosestTarget MyInfo PlayersInfo}
+		if(ClosestEnnemiList == nil orelse TryOnce==true) then Choices = [north east south west]%random
+		else % go direction of the nearest ennemi
+			%{System.show chooseDirection1(ClosestEnnemiList)}
+			pt(x:X y:Y) 	= MyInfo.path.1
+			pt(x:Xe y:Ye)	= ClosestEnnemiList.1.possibilities.1
+			%{System.show chooseDirection2}
+			%{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) allen(ClosestEnnemiList))}
+			if(X<Xe andthen Y<Ye) 		then Choices = [east south]
+			elseif(X>=Xe andthen Y<Ye)	then Choices = [north east]
+			elseif(X<Xe andthen Y>=Ye)	then Choices = [south west]
+			elseif(X>=Xe andthen Y>=Ye)	then Choices = [north west] 
+			end
+			%{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices allen(ClosestEnnemiList))}
+		end
+
+		%if(TryOnce==true) then
+			%{System.show chooseDirection(list:ClosestEnnemiList mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices)}
+		%else skip end
+
+		case ({OS.rand} mod {List.length Choices})
+		of 0 then if Possib.{List.nth Choices 1} == 1 then {List.nth Choices 1} else {ChooseDirection Possib MyInfo PlayersInfo true} end
+		[] 1 then if Possib.{List.nth Choices 2} == 1 then {List.nth Choices 2} else {ChooseDirection Possib MyInfo PlayersInfo true} end
+		[] 2 then if Possib.{List.nth Choices 3} == 1 then {List.nth Choices 3} else {ChooseDirection Possib MyInfo PlayersInfo true} end
+		[] 3 then if Possib.{List.nth Choices 4} == 1 then {List.nth Choices 4} else {ChooseDirection Possib MyInfo PlayersInfo true} end
 		end
 	end
-
-	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	%todo need to charge and bind KindItem if produced
-	%check when item is produced: Input.mine, Input.missile, Input.sonar, Input.drone
-	%<item> ::= null | mine | missile | sonar | drone
 
 	%strategie charge missile then mine then locate with drone/sonar 
 	% when ennemi found place mine and shoot with missile 
 	fun{ChargeItem KindItem MyInfo PlayersInfo}
-		Produced NewMyInfo 
+		Produced NewMyInfo FewestPoss MaxNbPoss MinNbPoss
 		%return true if it has charge/produce the item, false if not
 		fun{ChargeItemSpec Wanted ?Produced ?NewMyInfo}
 			if(MyInfo.fire.Wanted == 0) then % not ready to fire
@@ -519,9 +538,19 @@ in
 				false 
 			end
 		end
+		fun{ListPoss Players}
+			if(Players == nil) then nil
+			elseif(Players.1.id == MyInfo.id.id) then {ListPoss Players.2}
+			else {List.length Players.1.possibilities}|{ListPoss Players.2}
+			end
+		end
 	in
+		MaxNbPoss = 25
+		MinNbPoss = 2
+		FewestPoss = {Sort {ListPoss PlayersInfo} Value.'<'}.1
+
 		%try to charge/produce an item
-		if({FindTarget MyInfo PlayersInfo} == nil)	then Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
+		if(FewestPoss >= MaxNbPoss orelse (MyInfo.charge.sonar>=1 andthen FewestPoss<MinNbPoss))	then Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
 		elseif({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
 		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
 		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})	then skip
@@ -600,24 +629,25 @@ in
 		NewMyInfo
 	end
 
-	%todo guess better the ennemies postions, here only if 100% sure
-	%return a list of players (only if 100% sure for now) ordered with first feest lives
-	fun{FindTarget MyInfo PlayersInfo} %todo check if dead
-		fun{FindTargetNotOrd Players}
-			%finish recursif call
-			if(Players == nil) then nil
-			%check if its not us
-			elseif(MyInfo.id.id == Players.1.id) then {FindTargetNotOrd Players.2}
-			%check if not dead
-			elseif(Players.1.lives==0) then {FindTargetNotOrd Players.2}
-			%target possible possitions error 
-			elseif(Players.1.possibilities == nil) then {System.show errorPossibilities(myInfo:MyInfo ennemi:Players.1)} {FindTargetNotOrd Players.2}
-			%target found
-			elseif(Players.1.possibilities.2 == nil) then Players.1 | {FindTargetNotOrd Players.2}
-			%target not found
-			else {FindTargetNotOrd Players.2} end
-		end
 
+	fun{FindTargetNotOrd Players MyInfo}
+		%finish recursif call
+		if(Players == nil) then nil
+		%check if not dead
+		elseif(Players.1==null orelse MyInfo.id ==null orelse (Players.1.lives==0 orelse Players.1.id==null)) then {FindTargetNotOrd Players.2 MyInfo}
+		%check if its not us
+		elseif(MyInfo.id.id == Players.1.id) then {FindTargetNotOrd Players.2 MyInfo}
+		%target possible possitions error 
+		elseif(Players.1.possibilities == nil) then {System.show errorPossibilities(myInfo:MyInfo ennemi:Players.1)} {FindTargetNotOrd Players.2 MyInfo}
+		%target found
+		elseif(Players.1.possibilities.2 == nil) then Players.1 | {FindTargetNotOrd Players.2 MyInfo}
+		%target not found
+		else {FindTargetNotOrd Players.2 MyInfo} end
+	end
+
+	%todo guess better the ennemies postions, here only if 100% sure
+	%return a list of players (only if 100% sure for now) ordered with first fewest lives
+	fun{FindTarget MyInfo PlayersInfo} %todo check if dead
 		%sort the player first fewest lives still alive
 		fun{Sort RecordList}
 			fun{Sort2 RecordList2 Lives}
@@ -628,8 +658,25 @@ in
 			end
 		in {Sort2 RecordList 1} end
 		
-	in	{Sort {FindTargetNotOrd PlayersInfo}} end
+	in	{Sort {FindTargetNotOrd PlayersInfo MyInfo}} end
 
+	fun{FindClosestTarget MyInfo PlayersInfo}
+		fun{Sort RecordList MaxManhattan}
+			fun{Sort2 RecordList2 Dist}
+				if(Dist>MaxManhattan) then nil
+				elseif(RecordList2==nil) then {Sort2 RecordList Dist+1}
+				elseif({ManhattanDistance MyInfo.path.1 RecordList2.1.possibilities.1} == Dist) then RecordList2.1|{Sort2 RecordList2.2 Dist}
+				else {Sort2 RecordList2.2 Dist} end
+			end
+		in {Sort2 RecordList 0} end
+		X Y MaxManhattan
+	in	
+		pt(x:X y:Y) = MyInfo.path.1
+		MaxManhattan = Input.nRow + Input.nColumn - (X + Y - 2)
+		{System.show {FindTargetNotOrd PlayersInfo MyInfo}}
+		{Sort {FindTargetNotOrd PlayersInfo MyInfo} MaxManhattan}
+	end
+	
 	%return a position (to fire with a missile) or null
 	%todo better targeting
 	%todo better 1 point hit and sink than 2 point hit and not sink
@@ -741,7 +788,12 @@ in
 		case PlayersInfo
 		of nil then nil
 		%dead player
-		[] null|Next then PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
+		[] null|Next then PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
+		%dead player
+		[] player(null)|Next then
+				PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
+		[] player(id:null lives:_ possibilities:_ surface:_ charge:_)|Next then
+				PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
 		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
 			if (ID == WantedID.id) then %todo change in StartPlayer
 				{Fun Args PlayersInfo.1}|Next
@@ -926,7 +978,7 @@ in
 		% return the Line number that is the biggest (without LineNb as candidate)
 		fun{MaxLine ListLine LineNb} ListNoLineNb Biggest Check LineCandidate in
 			ListNoLineNb = {List.subtract ListLine {List.nth ListLine LineNb}}
-			Biggest = {Sort  ListNoLineNb Value.'>'}.1
+			Biggest = {Sort ListNoLineNb Value.'>'}.1
 			LineCandidate = {GetPos ListNoLineNb Biggest}
 			if(LineCandidate < LineNb) then LineCandidate
 			else LineCandidate+1 end
@@ -1029,7 +1081,8 @@ in
 			{TreatStream T NewMyInfo PlayersInfo}
 		
 		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
-			NewMyInfo = {Move ID Pos Direction MyInfo}
+			ID = MyInfo.id
+			NewMyInfo = {Move Pos Direction MyInfo PlayersInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]dive|T then
