@@ -247,6 +247,7 @@ in
 			end
 		end
 	in
+		{Send GuiPort explosion(ID Position)}
 		{DamagingItemRecursive ID Position KindItem Players}
 	end
 
