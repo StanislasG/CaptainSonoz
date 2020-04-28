@@ -142,7 +142,6 @@ in
 		in
 			Color = State.id.color
 			pt(x:X y:Y) = Position
-			{System.show explosion(Color Position)}
 			Boom = label(text:"boom" borderwidth:5 relief:raised width:1 height:1 bg:Color)
 			{Grid.grid configure(Boom row:X+1 column:Y+1 sticky:wesn)}
 			State
