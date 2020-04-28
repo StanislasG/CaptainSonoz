@@ -281,6 +281,7 @@ in
 				% Handle message to current player
 				local EnnemyID Answer in
 					{Send Player sayPassingDrone(Drone ?EnnemyID ?Answer)}
+					{Wait EnnemyID} {Wait Answer}
 					% Send back information to player that has sent the drone
 					{Send {List.nth Players CurrentPlayer} sayAnswerDrone(Drone EnnemyID Answer)}
 				end

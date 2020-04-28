@@ -986,7 +986,8 @@ in
 		[]sayMineExplode(ID Position ?Message)|T then 
 			{TreatStream T {SayMineExplodeMyInfo MyInfo Position Message} PlayersInfo}
 		
-		[]sayPassingDrone(Drone ?ID ?Answer)|T then 
+		[]sayPassingDrone(Drone ?ID ?Answer)|T then
+			ID = MyInfo.id
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayPassingDrone arguments(drone:Drone id:ID answer:Answer myInfo:MyInfo)}}
 		
 		[]sayAnswerDrone(Drone ID Answer)|T then 
