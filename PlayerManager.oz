@@ -3,6 +3,7 @@ import
 	%import players
 	Player
 	%PlayerBasicAI
+	Player017Val
 export
 	playerGenerator:PlayerGenerator
 define
@@ -12,6 +13,7 @@ in
 		case Kind
 		of player2 then {Player.portPlayer Color ID} 
 		[] player1 then {Player.portPlayer Color ID}
+		[] playerVal then {Player017Val.portPlayer Color ID}
 		end
 	end
 end

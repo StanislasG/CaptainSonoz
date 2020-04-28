@@ -182,7 +182,6 @@ in
 			else pt(x:R1 y:C1)|{ListPtAnd T1 T2} end
 		end
 	end
-
 	% Return the list ListRef without the elements ListExcl
 	fun{ListPtExcl ListRef ListExcl} %answer:false
 		if(ListRef==nil) 		then nil
@@ -443,6 +442,7 @@ in
 		thread {TreatStream Stream MyInfo PlayersInfo} end 
 		Port % TODO : player name ?
 	end
+
 % ------------------------------------------
 % In-game management - Send Information
 % ------------------------------------------
@@ -797,16 +797,11 @@ in
 			else 		DamageTaken = 0
 		end
 		% Send message
-		if DamageTaken == 0 then 
-			Message = null
-		elseif MyInfo.lives =< DamageTaken then 
-			Message = sayDeath(MyInfo.id)
-			% Change MyInfo.id to null & lives to lives-DamageTaken
-			{MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
-		else 
-			Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
+		if DamageTaken == 0 then Message = null
+		elseif MyInfo.lives =< DamageTaken then Message = sayDeath(MyInfo.id)
+		else Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
 		end
-		% Change MyInfo.lives to lives-DamageTaken
+		% Return edited MyInfo
 		{MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
 	end
 
@@ -829,14 +824,9 @@ in
 			else 		DamageTaken = 0
 		end
 		% Send message
-		if DamageTaken == 0 then 
-			Message = null
-		elseif MyInfo.lives =< DamageTaken then 
-			Message = sayDeath(MyInfo.id)
-			% Change MyInfo.id to null & lives to lives-DamageTaken
-			{MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
-		else 
-			Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
+		if DamageTaken == 0 then Message = null
+		elseif MyInfo.lives =< DamageTaken then Message = sayDeath(MyInfo.id)
+		else Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
 		end
 		% Return edited MyInfo
 		{MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
@@ -939,9 +929,7 @@ in
 	fun{SayDamageTaken Args Player} Damage LifeLeft PLives in
 		PLives = Player.lives
 		arguments(damage:Damage lifeLeft:LifeLeft) = Args
-		if (PLives-Damage \= LifeLeft) then 
-			{System.show error(damage:Damage lifeLeft:LifeLeft playerLives:PLives)} 
-		end
+		if (PLives-Damage \= LifeLeft) then {System.show error(damage:Damage lifeLeft:LifeLeft playerLives:PLives)} end
 		% Return
 		{PlayerChangeVal Player lives LifeLeft}
 	end
@@ -950,7 +938,6 @@ in
 % TreatStream
 % ------------------------------------------
 	proc{TreatStream Stream MyInfo PlayersInfo}
-		% set MyInfo.id to null if player is dead
 		case Stream
 		of nil then skip
 
