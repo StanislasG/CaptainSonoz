@@ -786,7 +786,7 @@ in
 	end
 
 	% On missile explosion, edit my info and send message back
-	fun{SayMissileExplodeMyInfo MyInfo Pos ?Message} DamageTaken in
+	fun{SayMissileExplodeMyInfo MyInfo Pos ?Message} DamageTaken NewMyInfo in
 		% Compute damage taken
 		case {ManhattanDistance MyInfo.path.1 Pos}
 			of 1 then	DamageTaken = 1
@@ -796,15 +796,17 @@ in
 		% Send message
 		if DamageTaken == 0 then 
 			Message = null
+			NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
 		elseif MyInfo.lives =< DamageTaken then 
 			Message = sayDeath(MyInfo.id)
 			% Change MyInfo.id to null & lives to lives-DamageTaken
-			{MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
+			NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
 		else 
 			Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
+			NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
 		end
 		% Change MyInfo.lives to lives-DamageTaken
-		{MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
+		NewMyInfo
 	end
 
 	% On missile explosion, edit missile charge status
@@ -818,7 +820,7 @@ in
 	
 	% Edit MyInfo on mine explosion
 	%todo either combine SayMineExplodeMyInfo and SayMissileExplodeMyInfo or find something to distinguish
-	fun{SayMineExplodeMyInfo MyInfo Pos Message} DamageTaken in
+	fun{SayMineExplodeMyInfo MyInfo Pos Message} DamageTaken NewMyInfo in
 		% Compute damage taken
 		case {ManhattanDistance MyInfo.path.1 Pos}
 			of 1 then	DamageTaken = 1
@@ -828,15 +830,17 @@ in
 		% Send message
 		if DamageTaken == 0 then 
 			Message = null
+			NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
 		elseif MyInfo.lives =< DamageTaken then 
 			Message = sayDeath(MyInfo.id)
 			% Change MyInfo.id to null & lives to lives-DamageTaken
-			{MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
+			NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
 		else 
 			Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
+			NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
 		end
 		% Return edited MyInfo
-		{MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
+		NewMyInfo
 	end
 	
 	% Passing drone 
