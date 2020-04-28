@@ -15,16 +15,13 @@ define
 	NewPosition NewPositionList
 	ValidPositions
 	AccessiblePosition
-	ManhattanDistance ManhattanCross
+	ManhattanDistance
 	Dive Surface
 	ListPtAnd ListPtExcl
 		%create list of points
 		GenerateRow GeneratePartRow
 		GenerateColumn GeneratePartColumn
 		GenerateCross ValidPositionsAround
-		GenerateDiagTopBottom
-		GenerateDiagBottomTop
-		GenerateDiamond ManhattanCross
 	MyInfoChangeVal ItemRecordChangeVal 
 	PlayerChangeVal PlayerNbChangeVal
 	PlayersInfoPos
@@ -38,10 +35,7 @@ define
 	% In-game management functions
 	Move FindPath ChooseDirection
 	ChargeItem 
-	FireItem 
-		FindTarget
-		FireItemSearch
-		FireItemCheck
+	FireItem
 	FireMine
 
 	% Say functions
@@ -236,58 +230,6 @@ in
 
 	% Generate a list of valid positions (no island, no ecxeeding borders) around a Position 
 	fun{ValidPositionsAround Position} {ValidPositions {GenerateCross Position 1 1}} end
-
-	% /!\ StartPt upperLeft (smallest X and y), EndPt bottomRight
-	fun{GenerateDiagTopBottom StartPt EndPt} X1 Y1 X2 Y2 in
-		pt(x:X1 y:Y1) = StartPt
-		pt(x:X2 y:Y2) = EndPt
-		if(X1>X2 orelse Y1>Y2) then {System.show errorGenerateDiagTB} nil
-		elseif (X1==X2 andthen Y1==Y2) then StartPt|nil
-		else StartPt | {GenerateDiagTopBottom pt(x:X1+1 y:Y1+1) EndPt}
-		end
-	end
-
-	% /!\ StartPt bottomLeft (smallest Y, biggest X), EndPt TopRight
-	fun{GenerateDiagBottomTop StartPt EndPt} X1 Y1 X2 Y2 in
-		pt(x:X1 y:Y1) = StartPt
-		pt(x:X2 y:Y2) = EndPt
-		if(X1<X2 orelse Y1>Y2) then {System.show errorGenerateDiagBT} nil
-		elseif (X1==X2 andthen Y1==Y2) then StartPt|nil
-		else StartPt | {GenerateDiagBottomTop pt(x:X1-1 y:Y1+1) EndPt}
-		end
-	end
-
-	% generate diamond with Size >= 0
-	% size represent the manhattan distance with reference to Pos
-	fun{GenerateDiamond StartPt Size} 
-		X Y 
-		Left Right Up Down
-		DiagLU DiagLD DiagUR DiagDR
-	in
-		if(Size==0) then StartPt|nil
-		else
-			pt(x:X y:Y) = StartPt
-			Left 	= pt(x:X y:Y-Size)		Right 	= pt(x:X y:Y+Size)
-			Up 		= pt(x:X-Size y:Y)		Down 	= pt(x:X+Size y:Y)
-			% /!\ do not count the corner twice, the upper keep start delete end and for down inverse
-			DiagLU	= {List.take {GenerateDiagBottomTop Left Up} Size}
-			DiagLD	= {List.drop {GenerateDiagTopBottom Left Down} 1}
-			DiagUR	= {List.take {GenerateDiagTopBottom Up Right} Size}
-			DiagDR	= {List.drop {GenerateDiagBottomTop Down Right} 1}
-			%return
-			{Append {Append DiagLU DiagLD} {Append DiagUR DiagDR}}
-		end
-	end
-
-	% Generate position list between bounds of Min to Max
-	fun{ManhattanCross MyPos Min Max}
-		if(Max < Min )then {System.show errorManhattanCross} nil
-		elseif(Max > Min) then
-			{Append {GenerateDiamond MyPos Max} {ManhattanCross MyPos Min Max-1}}
-		else
-			{GenerateDiamond MyPos Max}
-		end
-	end
 
 % ------------------------------------------
 % Record modification
@@ -500,232 +442,72 @@ in
 		end
 	end
 
-	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	%todo need to charge and bind KindItem if produced
-	%check when item is produced: Input.mine, Input.missile, Input.sonar, Input.drone
-	%<item> ::= null | mine | missile | sonar | drone
+	% Always charge mines
+	fun{ChargeItem KindItem MyInfo PlayersInfo} NewMyInfo in
+    % Charge nothing if mine is already full
+    if MyInfo.charge.mine == Input.mine then
+      KindItem = null
+      NewMyInfo = MyInfo
+    % Charge mine
+    else 
+      KindItem = mine
+      NewMyInfo = {MyInfoChangeVal MyInfo charge {ItemRecordChangeVal MyInfo.charge mine MyInfo.charge.mine+1}}
+    end
+    NewMyInfo
+	end
 
-	%strategie charge missile then mine then locate with drone/sonar 
-	% when ennemi found place mine and shoot with missile 
-	fun{ChargeItem KindItem MyInfo PlayersInfo}
-		Produced NewMyInfo 
-		%return true if it has charge/produce the item, false if not
-		fun{ChargeItemSpec Wanted ?Produced ?NewMyInfo}
-			if(MyInfo.fire.Wanted == 0) then % not ready to fire
-				if(MyInfo.charge.Wanted+1 == Input.Wanted) then NewCharge NewFire in % item produced
-					Produced 	= Wanted
-					NewCharge 	= {ItemRecordChangeVal MyInfo.charge Wanted 0}
-					NewFire 	= {ItemRecordChangeVal MyInfo.fire Wanted 1}
-					NewMyInfo 	= {MyInfoChangeVal {MyInfoChangeVal MyInfo charge NewCharge} fire NewFire}
-				else NewCharge in % item charge
-					Produced 	= null 
-					NewCharge 	= {ItemRecordChangeVal MyInfo.charge Wanted MyInfo.charge.Wanted+1}
-					NewMyInfo 	= {MyInfoChangeVal MyInfo charge NewCharge}
-				end
-				true
-			else % already ready to fire, cannot have two of the same item ready to be fire
-				false 
-			end
-		end
-	in
-		%try to charge/produce an item
-		if({FindTarget MyInfo PlayersInfo} == nil)	then Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
-		elseif({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
-		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
-		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})	then skip
-		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})	then skip
-		end
-		%bind
-		KindItem = Produced
-		%{System.show chargeItem(Produced NewMyInfo.charge NewMyInfo.fire)}
-		%return
+	% Put mine down if it is charged
+	fun{FireItem KindFire MyInfo PlayersInfo} MinePos NewMyInfo in
+		if MyInfo.charge.mine == Input.mine then
+      MinePos = {ValidPositionsAround MyInfo.path.1}
+      if MinePos \= null then NewCharge in
+        KindFire = mine(MinePos.1)
+        NewCharge = {ItemRecordChangeVal MyInfo.charge mine 0}
+        NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo charge NewCharge} mine MinePos.1|MyInfo.mine}
+      end
+    else
+      KindFire = null
+      NewMyInfo = MyInfo
+    end
 		NewMyInfo
 	end
 
-	%first try shoot a missile if is right
-	%second place a mine and shoot if ennemi damage int this round or if ennemi if has been detected
-	%third to detect ennemi
-	fun{FireItem KindFire MyInfo PlayersInfo} Fire TargetOrder NewMyInfo in
-		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
+	fun{FireMine Mine MyInfo PlayersInfo}
+    NewMines
+    % Returns true if a player is in range of a mine
+    fun{PlayerInRangeOfMine Position PlayersInfo}
+      case PlayersInfo
+      of nil then false
+      [] H|T then
+        case H.possibilities
+        of P|nil then 
+          if {ManhattanDistance P Position} =< 1 then true
+          else {PlayerInRangeOfMine Position T}
+          end
+        else {PlayerInRangeOfMine Position T}
+        end
+      end
+    end
 
-		%list of record where to shoot order with as first fewest lives
-		TargetOrder = {FindTarget MyInfo PlayersInfo}
-		%{System.show TargetOrder}
-		%{System.show TargetOrder}
-		if(Fire.sonar==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
-			NewFire in
-			{System.show sonarUsed}
-			KindFire = sonar
-			NewFire		= {ItemRecordChangeVal MyInfo.fire sonar 0}
-			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
-		
-		elseif(Fire.drone==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
-			NewFire in
-			{System.show droneUsed}
-			KindFire = drone(row 1)
-			NewFire		= {ItemRecordChangeVal MyInfo.fire drone 0}
-			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
-		
-		elseif(Fire.missile==1 andthen TargetOrder\=nil) then MissilePt in
-			MissilePt = {FireItemSearch MyInfo TargetOrder missile}
-			if (MissilePt==null) then KindFire=null NewMyInfo=MyInfo 
-			else NewFire in
-				KindFire	= missile(MissilePt)
-				NewFire		= {ItemRecordChangeVal MyInfo.fire missile 0}
-				NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
-			end
-
-		elseif(Fire.mine == 1 andthen TargetOrder\=nil) then MinePt in
-			%best option direct hit
-			MinePt = {FireItemSearch MyInfo TargetOrder mine}
-			if(MinePt==null) then KindFire=null NewMyInfo=MyInfo
-			else NewFire in
-				KindFire	= mine(MinePt)
-				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
-				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt|MyInfo.mine}
-			end
-
-		%todo if not on a player, try to maximise the number of potential hits
-		elseif(Fire.mine == 1) then MinePt in
-			MinePt = {ValidPositionsAround MyInfo.path.1}
-			if(MinePt==null) then KindFire=null NewMyInfo=MyInfo
-			else NewFire in
-				KindFire	= mine(MinePt.1)
-				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
-				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt.1|MyInfo.mine}
-			end
-
-		else 
-			{System.show doNothing}
-			KindFire = null
-			NewMyInfo = MyInfo
-		end
-		NewMyInfo
-	end
-
-	%todo guess better the ennemies postions, here only if 100% sure
-	%return a list of players (only if 100% sure for now) ordered with first feest lives
-	fun{FindTarget MyInfo PlayersInfo} %todo check if dead
-		fun{FindTargetNotOrd Players}
-			%finish recursif call
-			if(Players == nil) then nil
-			%check if its not us
-			elseif(MyInfo.id.id == Players.1.id) then {FindTargetNotOrd Players.2}
-			%check if not dead
-			elseif(Players.1.lives==0) then {FindTargetNotOrd Players.2}
-			%target possible possitions error 
-			elseif(Players.1.possibilities == nil) then {System.show errorPossibilities(myInfo:MyInfo ennemi:Players.1)} {FindTargetNotOrd Players.2}
-			%target found
-			elseif(Players.1.possibilities.2 == nil) then Players.1 | {FindTargetNotOrd Players.2}
-			%target not found
-			else {FindTargetNotOrd Players.2} end
-		end
-
-		%sort the player first fewest lives still alive
-		fun{Sort RecordList}
-			fun{Sort2 RecordList2 Lives}
-				if(Lives>Input.maxDamage) then nil
-				elseif(RecordList2==nil) then {Sort2 RecordList Lives+1}
-				elseif(RecordList2.1.lives == Lives) then RecordList2.1|{Sort2 RecordList2.2 Lives}
-				else {Sort2 RecordList2.2 Lives} end
-			end
-		in {Sort2 RecordList 1} end
-		
-	in	{Sort {FindTargetNotOrd PlayersInfo}} end
-
-	%return a position (to fire with a missile) or null
-	%todo better targeting
-	%todo better 1 point hit and sink than 2 point hit and not sink
-	% return 2 point hit, if not found a 1 point hit, if not found null
-	% problem if two ennemies have the same amount of live then it could shout a one point hit even it there is a 2 point hit
-	% help: should test all possible ennemie with the same amount of live if multiple option choose the one with 2 points
-	fun{FireItemSearch MyInfo TargetOrder Type} 
-		%no shot found
-		if(TargetOrder == nil) then null
-		else EnnemiPos MyPos MissilePos in
-			MyPos = MyInfo.path.1 
-			EnnemiPos = TargetOrder.1.possibilities.1
-			%try to find a target to hit the ennemi
-			MissilePos = {FireItemCheck MyPos EnnemiPos Type} 
-			if(MissilePos == null) then %try find an other ennemi
-				{FireItemSearch MyInfo TargetOrder.2 Type}
-			else %target found
-				{System.show fire(type:Type myPos:MyPos hit:MissilePos ennemi:EnnemiPos)}
-				%{Time.delay 2000}
-				MissilePos
-			end
-		end
-	end
-
-	%to remove own hits
-	%return a position to hit or null
-	fun{FireItemCheck MyPos KillPos Type} 
-		Min Max
-		OwnDamage TwoPoint OnePoint
-	in
-		case Type
-			of missile then Min=Input.minDistanceMissile Max=Input.maxDistanceMissile
-			[] mine then Min=Input.minDistanceMine Max=Input.maxDistanceMine
-		end
-		OwnDamage = {ValidPositionsAround MyPos}
-		TwoPoint = {ManhattanCross MyPos Min Max}
-		OnePoint = {GenerateDiamond MyPos Max+1}
-		if({List.member KillPos TwoPoint}) then %two point hit
-			KillPos 
-		elseif({List.member KillPos OnePoint}) then %one point hit
-			%two possible shots
-			TargetPts in
-			TargetPts = {ValidPositionsAround KillPos}
-			%todo better choice
-			%try to find shooting point, never goes to check the fourth point
-			if({List.member TargetPts.1 TwoPoint}) then TargetPts.1
-			elseif({List.member TargetPts.2 TwoPoint}) then TargetPts.2.1
-			else TargetPts.2.2.1
-			end
-		else
-			null
-		end
-	end
-
-	fun{FireMine Mine MyInfo PlayersInfo} 
-		%return a MineList without the Mine
-		fun{MineExcl MineList Mine} 
-			if(MineList == nil) 		then nil
-			elseif(MineList.1 == Mine)	then MineList.2
-			else {MineExcl MineList.2 Mine} end
-		end
-
-		%todo better to find two points hit
-		%return <pos> or null
-		fun{FindMine MineList TargetOrder}
-			% no mine found
-			if(TargetOrder == nil) then null
-			% try to find mine with an other ennemi
-			elseif(MineList == nil) then {FindMine MyInfo.mine TargetOrder.2}
-			else MyPos EnnemiPos CurrentMine Explosion in
-				MyPos = MyInfo.path.1
-				EnnemiPos = TargetOrder.1.possibilities.1 %assume only one poss
-				CurrentMine = MineList.1 %CurrentMine = <pos>
-				Explosion = CurrentMine|{ValidPositionsAround CurrentMine}
-				%do not fire even if the ennemi loses more lives than we do
-				if({List.member MyPos Explosion}) then {FindMine MineList.2 TargetOrder}
-				elseif({List.member EnnemiPos Explosion}) then CurrentMine
-				else {FindMine MineList.2 TargetOrder}
-				end
-			end
-		end
-
-		TargetOrder NewMyInfo 
-	in 
-		%{System.show startMine}
-		TargetOrder = {FindTarget MyInfo PlayersInfo}
-		Mine = {FindMine MyInfo.mine TargetOrder}
-		%{System.show Mine}%{System.show MyInfo.mine}{Time.delay 1000}
-		if(Mine\=null)then
-			NewMyInfo = {MyInfoChangeVal MyInfo mine {MineExcl MyInfo.mine Mine}}
-		else NewMyInfo=MyInfo
-		end
-		NewMyInfo
+    % Returns a list without the mine that exploded
+    % Explodes the first mine that can damage someone (except if damages me)
+    fun{RecursiveMine Mine Mines MyPosition PlayersInfo}
+      case Mines
+      of nil then 
+        Mine = null
+        nil
+      [] H|T then
+        if ({ManhattanDistance MyPosition H} > 1) andthen ({PlayerInRangeOfMine H PlayersInfo}) then
+          Mine = H
+          T
+        else 
+          H | {RecursiveMine Mine T MyPosition PlayersInfo}
+        end
+      end
+    end
+  in
+    NewMines = {RecursiveMine Mine MyInfo.mine MyInfo.path.1 PlayersInfo}
+    {MyInfoChangeVal MyInfo mine NewMines}
 	end
 
 % ------------------------------------------  
@@ -833,7 +615,7 @@ in
 	end
 	
 	% Passing drone 
-	%todo add the info to our player in PlayersInfo
+	% todo add the info to our player in PlayersInfo
 	% Args : arguments(drone:Drone id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingDrone Args Player} Drone ID Answer MyInfo NewCharge in
 		% Get info
@@ -903,7 +685,7 @@ in
 		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
 
-	% Calculate player's position possibibilities after sonar
+	% Calculate player's position possibilities after sonar
 	fun{SonarPossibilities X Y Poss}
 		case Poss
 		of nil then	nil
@@ -955,7 +737,6 @@ in
 		[]chargeItem(?ID ?KindItem)|T then NewMyInfo in
 			ID=MyInfo.id
 			NewMyInfo = {ChargeItem KindItem MyInfo PlayersInfo}
-			%{System.show chargeItem(KindItem)}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]fireItem(?ID ?KindFire)|T then NewMyInfo in
