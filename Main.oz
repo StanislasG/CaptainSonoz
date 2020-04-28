@@ -208,7 +208,7 @@ in
 		{Send {List.nth Players CurrentPlayer} fireMine(?ID ?MinePosition)}
 		{Wait ID} {Wait MinePosition}
 		% Handle answer
-		if MinePosition == null then skip
+		if MinePosition == null orelse ID == null then skip
 		else 
 			{Send GuiPort removeMine(ID MinePosition)}
 			{DamagingItem ID MinePosition mine}
