@@ -247,6 +247,7 @@ in
 			end
 		end
 	in
+		{Send GuiPort explosion(ID Position)}
 		{DamagingItemRecursive ID Position KindItem Players}
 	end
 
@@ -259,6 +260,7 @@ in
 				% Handle message to current player
 				local EnnemyID Answer in
 					{Send Player sayPassingSonar(?EnnemyID ?Answer)}
+					{Wait EnnemyID} {Wait Answer}
 					% Send back information to player that has sent the sonar
 					{Send {List.nth Players CurrentPlayer} sayAnswerSonar(EnnemyID Answer)}
 				end

@@ -33,6 +33,9 @@ define
 	StateModification
 
 	UpdateLife
+
+	%new
+	Explosion
 in
 
 %%%%% Build the initial window and set it up (call only once)
@@ -71,8 +74,7 @@ in
 
 %%%%% Squares of water and island
 	Squares = square(0:label(text:"" width:1 height:1 bg:c(102 102 255))
-			1:label(text:"" borderwidth:5 relief:raised width:1 height:1 bg:c(153 76 0))
-			)
+			1:label(text:"" borderwidth:5 relief:raised width:1 height:1 bg:c(153 76 0)))
 
 %%%%% Labels for rows and columns
 	fun{Label V}
@@ -130,6 +132,19 @@ in
 			{NewPath 'raise'()}
 			{Handle 'raise'()}
 			guiPlayer(id:ID score:HandleScore submarine:Handle mines:Mine path:NewPath|Path)
+		end
+	end
+
+	%todo better animation
+	fun{Explosion Position}
+		fun{$ Grid State}
+			Color X Y Boom
+		in
+			Color = State.id.color
+			pt(x:X y:Y) = Position
+			Boom = label(text:"boom" borderwidth:5 relief:raised width:1 height:1 bg:Color)
+			{Grid.grid configure(Boom row:X+1 column:Y+1 sticky:wesn)}
+			State
 		end
 	end
 
@@ -274,7 +289,7 @@ in
 		[] removePlayer(ID)|T then
 			{TreatStream T Grid {RemovePlayer Grid ID State}}
 		[] explosion(ID Position)|T then %not mandatory
-			{TreatStream T Grid State}
+			{TreatStream T Grid {StateModification Grid ID State {Explosion Position}}}
 		[] drone(ID Drone)|T then %not mandatory
 			{TreatStream T Grid State}
 		[] sonar(ID)|T then %not mandatory
