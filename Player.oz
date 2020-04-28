@@ -954,7 +954,6 @@ in
 % TreatStream
 % ------------------------------------------
 	proc{TreatStream Stream MyInfo PlayersInfo}
-		% set MyInfo.id to null if player is dead
 		case Stream
 		of nil then skip
 

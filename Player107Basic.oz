@@ -496,12 +496,12 @@ in
       of nil then 
         Mine = null
         nil
-      [] H|T then 
-        if {ManhattanDistance MyPosition H} =< 1 then 
-          H | {RecursiveMine Mine T MyPosition PlayersInfo}
-        elseif {PlayerInRangeOfMine H PlayersInfo} then
+      [] H|T then
+        if ({ManhattanDistance MyPosition H} > 1) andthen ({PlayerInRangeOfMine H PlayersInfo}) then
           Mine = H
           T
+        else 
+          H | {RecursiveMine Mine T MyPosition PlayersInfo}
         end
       end
     end
