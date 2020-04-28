@@ -21,7 +21,8 @@ define
 		%create list of points
 		GenerateRow GeneratePartRow
 		GenerateColumn GeneratePartColumn
-		GenerateCross ValidPositionsAround
+		GenerateCross GenerateSimpleCross
+		ValidPositionsAround
 		GenerateDiagTopBottom
 		GenerateDiagBottomTop
 		GenerateDiamond ManhattanCross
@@ -172,14 +173,8 @@ in
 	fun{ListPtAnd List1 List2} %answer:true, 
 		if(List1==nil) 		then nil
 		elseif(List2==nil)	then nil
-		else R1 R2 C1 C2 T1 T2 in
-			pt(x:R1 y:C1)|T1=List1    
-			pt(x:R2 y:C2)|T2=List2
-			if(C1>C2) 		then {ListPtAnd List1 T2} %List2 is behind List1
-			elseif(C1<C2)	then {ListPtAnd T1 List2}
-			elseif(R1>R2)	then {ListPtAnd List1 T2}
-			elseif(R1<R2)	then {ListPtAnd T1 List2}
-			else pt(x:R1 y:C1)|{ListPtAnd T1 T2} end
+		elseif({List.member List1.1 List2}) then List1.1|{ListPtAnd List1.2 List2}
+		else {ListPtAnd List1.2 List2}
 		end
 	end
 
@@ -187,14 +182,8 @@ in
 	fun{ListPtExcl ListRef ListExcl} %answer:false
 		if(ListRef==nil) 		then nil
 		elseif(ListExcl==nil)	then ListRef
-		else R1 R2 C1 C2 T1 T2 in
-			pt(x:R1 y:C1)|T1=ListRef    
-			pt(x:R2 y:C2)|T2=ListExcl
-			if(C1>C2) 		then {ListPtAnd ListRef T2} %ListExcl is behind ListRef
-			elseif(C1<C2)	then pt(x:R1 y:C1)|{ListPtAnd T1 ListExcl}
-			elseif(R1>R2)	then {ListPtAnd ListRef T2}
-			elseif(R1<R2)	then pt(x:R1 y:C1)|{ListPtAnd T1 ListExcl}
-			else {ListPtAnd T1 T2} end %same point, must be excl
+		elseif({List.member ListRef.1 ListExcl}) then {ListPtExcl ListRef.2 ListExcl}
+		else ListRef.1|{ListPtExcl ListRef.2 ListExcl}
 		end
 	end
 
@@ -234,6 +223,9 @@ in
 		Down 	= {GeneratePartColumn Y X+Min X+Max}
 		{Append {Append Left Right} {Append Up Down}}
 	end
+
+	% Generate a list of positions (no island, no ecxeeding borders) around a Position
+	fun{GenerateSimpleCross Position} {GenerateCross Position 1 1} end
 
 	% Generate a list of valid positions (no island, no ecxeeding borders) around a Position 
 	fun{ValidPositionsAround Position} {ValidPositions {GenerateCross Position 1 1}} end
@@ -373,7 +365,7 @@ in
 				case Check
 				of null			then {PlayersInfoPos MyInfo Next}
 				[] pt(x:_ y:_)	then 
-					{System.show mineFound(Check)} 
+					%{System.show mineFound(Check)} 
 					%{Time.delay 2000} 
 					Check
 				end
@@ -529,7 +521,7 @@ in
 		end
 	in
 		%try to charge/produce an item
-		if({FindTarget MyInfo PlayersInfo} == nil)	then Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
+		if({FindTarget MyInfo PlayersInfo} == nil)	then Test in Test = {ChargeItemSpec drone ?Produced ?NewMyInfo}
 		elseif({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
 		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
 		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})	then skip
@@ -550,19 +542,24 @@ in
 
 		%list of record where to shoot order with as first fewest lives
 		TargetOrder = {FindTarget MyInfo PlayersInfo}
-		%{System.show TargetOrder}
-		%{System.show TargetOrder}
 		if(Fire.sonar==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
 			NewFire in
-			{System.show sonarUsed}
 			KindFire = sonar
 			NewFire		= {ItemRecordChangeVal MyInfo.fire sonar 0}
 			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
 		
 		elseif(Fire.drone==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
-			NewFire in
-			{System.show droneUsed}
-			KindFire = drone(row 1)
+			NewFire RowCol RowColName RowColNb in
+			RowCol = {OS.rand} mod 2
+			if(RowCol == 0) then 
+				RowColName=row
+				RowColNb = ({OS.rand} mod Input.nRow) +1
+			else 
+				RowColName=column
+				RowColNb = ({OS.rand} mod Input.nColumn) +1
+			end
+
+			KindFire = drone(RowColName RowColNb)
 			NewFire		= {ItemRecordChangeVal MyInfo.fire drone 0}
 			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
 		
@@ -596,7 +593,7 @@ in
 			end
 
 		else 
-			{System.show doNothing}
+			%{System.show doNothing}
 			KindFire = null
 			NewMyInfo = MyInfo
 		end
@@ -650,8 +647,7 @@ in
 			if(MissilePos == null) then %try find an other ennemi
 				{FireItemSearch MyInfo TargetOrder.2 Type}
 			else %target found
-				{System.show fire(type:Type myPos:MyPos hit:MissilePos ennemi:EnnemiPos)}
-				%{Time.delay 2000}
+				%{System.show fire(type:Type myPos:MyPos hit:MissilePos ennemi:EnnemiPos)}
 				MissilePos
 			end
 		end
@@ -667,7 +663,7 @@ in
 			of missile then Min=Input.minDistanceMissile Max=Input.maxDistanceMissile
 			[] mine then Min=Input.minDistanceMine Max=Input.maxDistanceMine
 		end
-		OwnDamage = {ValidPositionsAround MyPos}
+		OwnDamage = {GenerateSimpleCross MyPos}
 		TwoPoint = {ManhattanCross MyPos Min Max}
 		OnePoint = {GenerateDiamond MyPos Max+1}
 		if({List.member KillPos TwoPoint}) then %two point hit
@@ -675,7 +671,8 @@ in
 		elseif({List.member KillPos OnePoint}) then %one point hit
 			%two possible shots
 			TargetPts in
-			TargetPts = {ValidPositionsAround KillPos}
+			%we can shoot on islands, it will never shoot out the bounderies of the game
+			TargetPts = {GenerateSimpleCross KillPos}
 			%todo better choice
 			%try to find shooting point, never goes to check the fourth point
 			if({List.member TargetPts.1 TwoPoint}) then TargetPts.1
@@ -854,6 +851,8 @@ in
 			of drone(row X) 	then Answer=(MyInfo.path.1.x == X)
 			[] drone(column Y)	then Answer=(MyInfo.path.1.y == Y)
 		end
+
+		%{System.show sayPassingDrone(mypos:MyInfo.path.1 ask:Drone ans:Answer)}
 		% Edit charge
 		NewCharge = {ItemRecordChangeVal Player.charge drone 0}
 		% Return
@@ -879,6 +878,7 @@ in
 			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateColumn Y}}}
 			end
 		end
+		%{System.show sayAnswerDrone(ans:Answer old:PPoss new:NewPossibilities)}
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
@@ -887,7 +887,7 @@ in
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingSonar Args Player} ID Answer MyInfo NewCharge in
-		{System.show sayPassingSonar(Args Player)}
+		%{System.show sayPassingSonar(Args Player)}
 		% Get info
 		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
 		% Return info
