@@ -499,12 +499,12 @@ in
 
 	%strategie charge missile then mine then locate with drone/sonar 
 	% when ennemi found place mine and shoot with missile 
-	fun{ChargeItem KindItem MyInfo}
+	fun{ChargeItem KindItem MyInfo PlayersInfo}
 		Produced NewMyInfo 
 		%return true if it has charge/produce the item, false if not
 		fun{ChargeItemSpec Wanted ?Produced ?NewMyInfo}
 			if(MyInfo.fire.Wanted == 0) then % not ready to fire
-				if(MyInfo.charge.Wanted == Input.Wanted) then NewCharge NewFire in % item produced
+				if(MyInfo.charge.Wanted+1 == Input.Wanted) then NewCharge NewFire in % item produced
 					Produced 	= Wanted
 					NewCharge 	= {ItemRecordChangeVal MyInfo.charge Wanted 0}
 					NewFire 	= {ItemRecordChangeVal MyInfo.fire Wanted 1}
@@ -521,14 +521,15 @@ in
 		end
 	in
 		%try to charge/produce an item
-		if({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
+		if({FindTarget MyInfo PlayersInfo} == nil)	then Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
+		elseif({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
 		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
 		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})	then skip
 		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})	then skip
 		end
 		%bind
 		KindItem = Produced
-		{System.show chargeItem(Produced NewMyInfo.charge NewMyInfo.fire)}
+		%{System.show chargeItem(Produced NewMyInfo.charge NewMyInfo.fire)}
 		%return
 		NewMyInfo
 	end
@@ -868,6 +869,7 @@ in
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingSonar Args Player} ID Answer MyInfo NewCharge in
+		{System.show sayPassingSonar(Args Player)}
 		% Get info
 		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
 		% Return info
@@ -888,7 +890,7 @@ in
 	% Update player possibilities with at least x or y correct
 	fun{SayAnswerSonar Args Player}	X Y NewPossibilities in
 		pt(x:X y:Y) = Args.position
-		NewPossibilities = {SonarPossibilities X Y  Player.possibilities}		
+		NewPossibilities = {SonarPossibilities X Y Player.possibilities}
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
@@ -936,7 +938,6 @@ in
 			{TreatStream T NewMyInfo PlayersInfo}
 		
 		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
-			%{System.show move(ID)}
 			NewMyInfo = {Move ID Pos Direction MyInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 
@@ -945,14 +946,13 @@ in
 
 		[]chargeItem(?ID ?KindItem)|T then NewMyInfo in
 			ID=MyInfo.id
-			NewMyInfo = {ChargeItem KindItem MyInfo}
+			NewMyInfo = {ChargeItem KindItem MyInfo PlayersInfo}
 			%{System.show chargeItem(KindItem)}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]fireItem(?ID ?KindFire)|T then NewMyInfo in
 			ID = MyInfo.id
 			NewMyInfo = {FireItem KindFire MyInfo PlayersInfo}
-			%{System.show fireItem(KindFire)}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]fireMine(?ID ?Mine)|T then NewMyInfo in
@@ -994,6 +994,7 @@ in
 		
 		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
 		[]sayPassingSonar(?ID ?Answer)|T then
+			ID = MyInfo.id
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayPassingSonar arguments(id:ID answer:Answer myInfo:MyInfo)}}
 		
 		[]sayAnswerSonar(ID Answer)|T then
