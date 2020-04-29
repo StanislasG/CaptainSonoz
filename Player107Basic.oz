@@ -25,7 +25,6 @@ define
 	MyInfoChangeVal ItemRecordChangeVal 
 	PlayerChangeVal
 	PlayersInfoPos
-	PrettyPrintMap
 	
 	% Game start functions
 	StartPlayer
@@ -313,32 +312,6 @@ in
 			end
 		end
 	end
-
-
-	%PointList = pt(x: y:_)|pt|...|nil
-	%it works if nothing else is printing to the terminal at the same time
-	%with his actual config it take a list of points and add it on the Input map (can be used for visualing the possible positions of the players)
-	proc{PrettyPrintMap PointList}
-		%change one pt to Char in a given map
-		fun{ChangeMap Map X Y Char}
-			fun{ChangeRow RMap RX}
-				if(RX==1) then {ChangeCol RMap.1 Y}|RMap.2
-				else RMap.1|{ChangeRow RMap.2 RX-1} end
-			end
-			fun{ChangeCol CMap CY}
-				if(CY==1) then Char|CMap.2
-				else CMap.1|{ChangeCol CMap.2 CY-1} end
-			end
-		in {ChangeRow Map X} end
-		fun{TempMap Map PointList Char}
-			case PointList of pt(x:X y:Y)|T then {TempMap {ChangeMap Map X Y Char} T Char}
-			else Map end
-		end
-		proc{PrintMap Map}
-			{System.show {List.toTuple '_' Map.1}}
-			if(Map.2\=nil) then {PrintMap Map.2} end
-		end
-	in {Time.delay 100} {System.show '----'} {PrintMap {TempMap Input.map PointList p}} {System.show '----'}	end
 
 % ------------------------------------------
 % Initialisation
@@ -781,7 +754,7 @@ in
 			% Dead player removed from player list
 			{TreatStream T MyInfo {SayDeath ID PlayersInfo}}
 		
-		[]sayDamageTaken(ID Damage LifeLeft)|T then Temp in
+		[]sayDamageTaken(ID Damage LifeLeft)|T then
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayDamageTaken arguments(damage:Damage lifeLeft:LifeLeft)}}
 		
 		[] _|T then
