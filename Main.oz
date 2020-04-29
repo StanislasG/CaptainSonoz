@@ -122,7 +122,8 @@ in
 	end
 
 	proc{Think}
-		{Time.delay Input.thinkMin + ({OS.rand} mod (Input.thinkMax-Input.thinkMin))}
+		% Max to avoid mod 0 if thinkMin == thinkMax
+		{Time.delay Input.thinkMin + ({OS.rand} mod {Max Input.thinkMax-Input.thinkMin 1})}
 	end
 	
 % -------------------------------------------------
