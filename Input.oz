@@ -254,22 +254,32 @@ in
 
 %%%% Description of the map %%%%
 
-	NRow = 5
-	NColumn = 5
+	% Map for checking MapGenerator
+	% NRow = 19
+	% NColumn = 36
+	% Map = {MapGenerator [5 2 5 4 7 8 18 13 7 14 3 5 6 7 8 9 9 9 9 9 4 5 5 4 4 3 5 6 7 6 5 4 3]}
 
-	% Map = [ [0 0 0 0 0 0 0 0 0 0]
-	% 				[0 0 0 0 0 0 0 0 0 0]
-	% 				[0 0 0 1 1 0 0 0 0 0]
-	% 				[0 0 1 1 0 0 1 0 0 0]
-	% 				[0 0 0 0 0 0 0 0 0 0]
-	% 				[0 0 0 0 0 0 0 0 0 0]]
-	Map = {MapGenerator [5 3]}
+	% Small map
+	NRow = 6
+	NColumn = 10
+	Map = [ [0 0 0 0 0 0 0 0 0 0]
+					[0 0 0 0 0 0 0 0 0 0]
+					[0 0 0 1 1 0 0 0 0 0]
+					[0 0 1 1 0 0 1 0 0 0]
+					[0 0 0 0 0 0 0 0 0 0]
+					[0 0 0 0 0 0 0 0 0 0]]
 
 %%%% Players description %%%%
 
-	NbPlayer = 2
-	Players = [player2 player2]
-	Colors = [blue green]
+	% Players for playing on a large map
+	% NbPlayer = 8
+	% Players = [player2 player2 player2 player2 player2 player2 player2 player2]
+	% Colors = [red blue green yellow white c(255 127 255) c(255 255 127) c(127 255 255)]
+
+	% Small number of players
+	NbPlayer = 4
+	Players = [player2 player2 player2 player2]
+	Colors = [red blue green yellow]
 
 %%%% Thinking parameters (only in simultaneous) %%%%
 

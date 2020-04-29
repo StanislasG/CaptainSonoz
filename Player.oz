@@ -908,20 +908,23 @@ in
 	% Fun = _
 	% Args = arguments(_)
 	fun {PlayerModification WantedID PlayersInfo Fun Args}
-		case PlayersInfo
-		of nil then nil
-		%dead player
-		[] null|Next then PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
-		%dead player
-		[] player(null)|Next then
-				PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
-		[] player(id:null lives:_ possibilities:_ surface:_ charge:_)|Next then
-				PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
-		[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == WantedID.id) then %todo change in StartPlayer
-				{Fun Args PlayersInfo.1}|Next
-			else
-				PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
+		if WantedID == null then PlayersInfo
+		else
+			case PlayersInfo
+			of nil then nil
+			%dead player
+			[] null|Next then PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
+			%dead player
+			[] player(null)|Next then
+					PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
+			[] player(id:null lives:_ possibilities:_ surface:_ charge:_)|Next then
+					PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
+			[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
+				if (ID == WantedID.id) then %todo change in StartPlayer
+					{Fun Args PlayersInfo.1}|Next
+				else
+					PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
+				end
 			end
 		end
 	end
@@ -1065,7 +1068,7 @@ in
 	% Answer with position when other player sends sonar
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
-	fun{SayPassingSonar Args Player} 
+	fun {SayPassingSonar Args Player} 
 		ID Answer MyInfo NewCharge 
 	in
 		%{System.show sayPassingSonar(Args Player)}
@@ -1076,12 +1079,12 @@ in
 		Answer = {MinimizeInfoSonar MyInfo.path.1 Player.possibilities}
 		%todo minimize info given by given position with the fewest information
 		%todo update player info with the infomaration that we have given 
-		% choose X or Y and send back information (random)
-		%random version
-		case ({OS.rand} mod 2)
-		of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
-		[] 1 then Answer = pt(x:(({OS.rand} mod Input.nColumn)+1) y:MyInfo.path.1.y)
-		end
+
+		% choose randomly X or Y and send back information
+		% case ({OS.rand} mod 2)
+		% of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
+		% [] 1 then Answer = pt(x:(({OS.rand} mod Input.nColumn)+1) y:MyInfo.path.1.y)
+		% end
 
 		%{System.show sayPassingSonar}
 		{System.show mini(id:ID poss:{List.length Player.possibilities} result:{MinimizeInfoSonar MyInfo.path.1 Player.possibilities})}
