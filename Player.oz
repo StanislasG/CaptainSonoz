@@ -2,7 +2,7 @@ functor
 import
 	Input
 	System
-	OS %added for random
+	OS % added for random
 export
 	portPlayer:StartPlayer
 define
@@ -18,7 +18,7 @@ define
 	ManhattanDistance ManhattanCross
 	Dive Surface
 	ListPtAnd ListPtExcl
-		%create list of points
+		% create list of points
 		GenerateRow GeneratePartRow
 		GenerateColumn GeneratePartColumn
 		GenerateCross GenerateSimpleCross
@@ -27,9 +27,7 @@ define
 		GenerateDiagBottomTop
 		GenerateDiamond ManhattanCross
 	MyInfoChangeVal ItemRecordChangeVal 
-	PlayerChangeVal PlayerNbChangeVal
-	PlayersInfoPos
-	PrettyPrintMap
+	PlayerChangeVal
 	
 	% Game start functions
 	StartPlayer
@@ -65,8 +63,8 @@ define
 	SaySurface
 	SayCharge
 	SayMinePlaced
-	SayMissileExplodeMyInfo SayMissileExplodeMissileStatus
-	SayMineExplodeMyInfo
+	SayMissileExplodeMissileStatus
+	SayExplosionMyInfo
 	SayPassingDrone
 	SayAnswerDrone SonarPossibilities
 	SayPassingSonar
@@ -78,12 +76,15 @@ in
 % ------------------------------------------
 % Structure code
 % ------------------------------------------
-%	Structure variables
-%	Basic functions
-%	Initialisation
-%	In-game management - Send Information
-%	In-game management - Receive Information
-%	TreatStream
+% 	Structure variables
+% 	Basic functions
+%	Point cloud generators
+%	Record modification
+% 	Initialisation
+% 	In-game management - Send Information
+%	Detection
+% 	In-game management - Receive Information
+% 	TreatStream
 
 % ------------------------------------------
 % Structure variables
@@ -92,9 +93,9 @@ in
 % 		- id: my ID, id(id:___ color:___ name:___)
 % 		- lives: the number of lives left
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
-%		- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
-%		- fire: for mine, missile, sonar, drone 0 (not charged) or 1 (charged)
-%		- mine: list of mine(<pos>)
+% 		- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
+% 		- fire: for mine, missile, sonar, drone 0 (not charged) or 1 (charged)
+% 		- mine: list of mine(<pos>)
 % 
 % player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
 % 		- id: to match ID sent by main
@@ -184,7 +185,7 @@ in
 % Point cloud generators
 % ------------------------------------------
 	% Return a list where elements must in List1 and List2
-	fun{ListPtAnd List1 List2} %answer:true, 
+	fun{ListPtAnd List1 List2} % answer:true, 
 		if(List1==nil) 		then nil
 		elseif(List2==nil)	then nil
 		elseif({List.member List1.1 List2}) then List1.1|{ListPtAnd List1.2 List2}
@@ -193,7 +194,7 @@ in
 	end
 
 	% Return the list ListRef without the elements ListExcl
-	fun{ListPtExcl ListRef ListExcl} %answer:false
+	fun{ListPtExcl ListRef ListExcl} % answer:false
 		if(ListRef==nil) 		then nil
 		elseif(ListExcl==nil)	then ListRef
 		elseif({List.member ListRef.1 ListExcl}) then {ListPtExcl ListRef.2 ListExcl}
@@ -207,7 +208,7 @@ in
 	% Generate a list of points with the right rownumber with bound and With a Start and End
 	fun{GeneratePartRow RowNumber StartCol EndCol}
 		fun{GenerateRowCol ColumnNumber}
-			if (ColumnNumber>EndCol orelse ColumnNumber>Input.nColumn) then nil %todo check == or =>
+			if (ColumnNumber>EndCol orelse ColumnNumber>Input.nColumn) then nil % todo check == or =>
 			else pt(x:RowNumber y:ColumnNumber) | {GenerateRowCol ColumnNumber+1} end
 		end
 	in
@@ -281,7 +282,7 @@ in
 			DiagLD	= {List.drop {GenerateDiagTopBottom Left Down} 1}
 			DiagUR	= {List.take {GenerateDiagTopBottom Up Right} Size}
 			DiagDR	= {List.drop {GenerateDiagBottomTop Down Right} 1}
-			%return
+			% return
 			{Append {Append DiagLU DiagLD} {Append DiagUR DiagDR}}
 		end
 	end
@@ -300,7 +301,7 @@ in
 % Record modification
 % ------------------------------------------
 	% Return a MyInfo record with one label changed
-	fun{MyInfoChangeVal Record Label NewVal} ID Lives Path Charge Fire Mine in %add if needed
+	fun{MyInfoChangeVal Record Label NewVal} ID Lives Path Charge Fire Mine in
 		myInfo(id:ID lives:Lives path:Path charge:Charge fire:Fire mine:Mine) = Record
 		case Label 
 			of id 			then myInfo(id:NewVal lives:Lives path:Path charge:Charge fire:Fire mine:Mine)
@@ -343,75 +344,6 @@ in
 			[] charge			then player(id:ID lives:Lives possibilities:Poss surface:Surface charge:NewVal)
 		end
 	end
-	
-	% not used
-	% Change a specific label in a spefic player
-	fun{PlayerNbChangeVal List Number Label NewVal}
-		if(List==nil)		then {System.show error(thePlayerdoesNotExist)}
-		elseif(Number==1) 	then {PlayerChangeVal List.1 Label NewVal}|List.2
-		else List.1|{PlayerNbChangeVal List.2 Number-1 Label NewVal}
-		end
-	end
-
-
-	% no more used
-	%player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
-	fun{PlayersInfoPos MyInfo PlayersInfo} 
-		fun{CheckMine Mine Pos} %Mine list of mine, Pos=ennemi
-			%{System.show checkMine(pos:Pos mine:Mine)}
-			if(Mine==nil) then null
-			elseif({ManhattanDistance Mine.1 Pos}=<1) then Mine.1
-			else {CheckMine Mine.2 Pos} end
-		end
-	in
-		case PlayersInfo
-		of nil then null %no more players
-		[] Player|Next then 
-			%{System.show playerPoss(Player.id Player.possibilities)}
-			%{System.show mines(MyInfo.mine)}
-			if(Player.id == MyInfo.id.id) 				then {PlayersInfoPos MyInfo Next}
-			%todo verify if it is correct and impl multi poss + correct Player.possibilities
-			elseif(Player.possibilities == nil) 	then {System.show error} {System.show debug(myinfo:MyInfo playersinfo:PlayersInfo)} {System.show Player.possibilities.1} %cause error for debugging 
-			elseif (Player.possibilities.2 \= nil) 	then {PlayersInfoPos MyInfo Next}
-			
-			else Check in
-				Check = {CheckMine MyInfo.mine Player.possibilities.1}
-				case Check
-				of null			then {PlayersInfoPos MyInfo Next}
-				[] pt(x:_ y:_)	then 
-					%{System.show mineFound(Check)} 
-					%{Time.delay 2000} 
-					Check
-				end
-			end
-		end
-	end
-
-
-	%PointList = pt(x: y:_)|pt|...|nil
-	%it works if nothing else is printing to the terminal at the same time
-	%with his actual config it take a list of points and add it on the Input map (can be used for visualing the possible positions of the players)
-	proc{PrettyPrintMap PointList}
-		%change one pt to Char in a given map
-		fun{ChangeMap Map X Y Char}
-			fun{ChangeRow RMap RX}
-				if(RX==1) then {ChangeCol RMap.1 Y}|RMap.2
-				else RMap.1|{ChangeRow RMap.2 RX-1} end
-			end
-			fun{ChangeCol CMap CY}
-				if(CY==1) then Char|CMap.2
-				else CMap.1|{ChangeCol CMap.2 CY-1} end
-			end
-		in {ChangeRow Map X} end
-		fun{TempMap Map PointList Char}
-			case PointList of pt(x:X y:Y)|T then {TempMap {ChangeMap Map X Y Char} T Char}
-			else Map end
-		end
-		proc{PrintMap Map}
-			{System.show {List.toTuple '_' Map.1}}
-			if(Map.2\=nil) then {PrintMap Map.2} end
-		end
-	in {Time.delay 100} {System.show '----'} {PrintMap {TempMap Input.map PointList p}} {System.show '----'}	end
 
 % ------------------------------------------
 % Initialisation
@@ -434,7 +366,7 @@ in
 	% Start Player (portPlayer from PlayerManager)
 	fun{StartPlayer Color ID}
 		Stream Port MyInfo PlayersInfo
-		fun{CreateAllPlayer ID} %only used in StartPlayer to init a tracker of all players
+		fun{CreateAllPlayer ID} % only used in StartPlayer to init a tracker of all players
 			if(ID>Input.nbPlayer) then nil 
 			else
 				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} surface:true charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreateAllPlayer ID+1}
@@ -442,12 +374,12 @@ in
 		end
 	in
 		% MyInfo will be stored by passing it as argument in TreatStream
-    % Initialise MyInfo
+		% Initialise MyInfo
 		MyInfo = myInfo(id:id(id:ID color:Color name:player) lives:Input.maxDamage path:nil charge:charge(mine:0 missile:0 sonar:0 drone:0) fire:fire(mine:0 missile:0 sonar:0 drone:0) mine:nil) 
 		PlayersInfo = {CreateAllPlayer 1}
 		{NewPort Stream Port}
 		thread {TreatStream Stream MyInfo PlayersInfo} end 
-		Port % TODO : player name ?
+		Port
 	end
 % ------------------------------------------
 % In-game management - Send Information
@@ -457,7 +389,7 @@ in
 		P Possib N S E W
 	in		
 		% Calculate useful info
-		P = MyInfo.path.1 %current position
+		P = MyInfo.path.1 % current position
 		
 		N = {AccessiblePosition {North P}}
 		S = {AccessiblePosition {South P}}
@@ -487,10 +419,10 @@ in
 			then surface
 		else
 			if Path == nil then {ChooseDirection Possib MyInfo PlayersInfo false}
-			elseif Path.1 == {North Pos} then {FindPath Pos Path.2 directions(north:0	east:E south:S west:W) MyInfo PlayersInfo}
-			elseif Path.1 == {East  Pos} then {FindPath Pos Path.2 directions(north:N	east:0 south:S west:W) MyInfo PlayersInfo}
-			elseif Path.1 == {South Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:0 west:W) MyInfo PlayersInfo}
-			elseif Path.1 == {West  Pos} then {FindPath Pos Path.2 directions(north:N	east:E south:S west:0) MyInfo PlayersInfo}
+			elseif Path.1 == {North Pos} then {FindPath Pos Path.2 directions(north:0 east:E south:S west:W) MyInfo PlayersInfo}
+			elseif Path.1 == {East  Pos} then {FindPath Pos Path.2 directions(north:N east:0 south:S west:W) MyInfo PlayersInfo}
+			elseif Path.1 == {South Pos} then {FindPath Pos Path.2 directions(north:N east:E south:0 west:W) MyInfo PlayersInfo}
+			elseif Path.1 == {West  Pos} then {FindPath Pos Path.2 directions(north:N east:E south:S west:0) MyInfo PlayersInfo}
 			else {FindPath Pos Path.2 Possib MyInfo PlayersInfo}
 			end
 		end
@@ -499,13 +431,10 @@ in
 	% Choose a random direction
 	fun {ChooseDirection Possib MyInfo PlayersInfo TryOnce} ClosestEnnemiList X Y Xe Ye Choices in
 		ClosestEnnemiList = {FindClosestTarget MyInfo PlayersInfo}
-		if(ClosestEnnemiList == nil orelse TryOnce==true) then Choices = [north east south west]%random
+		if(ClosestEnnemiList == nil orelse TryOnce==true) then Choices = [north east south west] % random
 		else % go direction of the nearest ennemi
-			%{System.show chooseDirection1(ClosestEnnemiList)}
 			pt(x:X y:Y) 	= MyInfo.path.1
 			pt(x:Xe y:Ye)	= ClosestEnnemiList.1.possibilities.1
-			%{System.show chooseDirection2}
-			%{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) allen(ClosestEnnemiList))}
 			if(X==Xe andthen Y==Ye)		then Choices = [north east south west]
 			elseif(X<Xe andthen Y<Ye) 	then Choices = [east south]
 			elseif(X>Xe andthen Y<Ye)	then Choices = [north east]
@@ -516,12 +445,7 @@ in
 			elseif(X<Xe andthen Y==Ye)	then Choices = [south]
 			elseif(X>Xe andthen Y==Ye)	then Choices = [north]
 			end
-			%{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices allen:en(ClosestEnnemiList))}
 		end
-
-		%if(TryOnce==true) then
-			%{System.show chooseDirection(list:ClosestEnnemiList mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices)}
-		%else skip end
 
 		case ({OS.rand} mod {List.length Choices})
 		of 0 then if Possib.{List.nth Choices 1} == 1 then {List.nth Choices 1} else {ChooseDirection Possib MyInfo PlayersInfo true} end
@@ -531,11 +455,10 @@ in
 		end
 	end
 
-	%strategie charge missile then mine then locate with drone/sonar 
-	% when ennemi found place mine and shoot with missile 
+	% strategie: locate with drone/sonar, then charge missile, then mine
 	fun{ChargeItem KindItem MyInfo PlayersInfo}
 		Produced NewMyInfo FewestPoss MaxNbPossSonar MaxNbPossDrone MinNbPossDrone
-		%return true if it has charge/produce the item, false if not
+		% return true if it has charge/produce the item, false if not
 		fun{ChargeItemSpec Wanted ?Produced ?NewMyInfo}
 			if(MyInfo.fire.Wanted == 0) then % not ready to fire
 				if(MyInfo.charge.Wanted+1 == Input.Wanted) then NewCharge NewFire in % item produced
@@ -549,14 +472,14 @@ in
 					NewMyInfo 	= {MyInfoChangeVal MyInfo charge NewCharge}
 				end
 				true
-			else % already ready to fire, cannot have two of the same item ready to be fire
+			else % already ready to fire, can not have two of the same item ready to be fire
 				false 
 			end
 		end
 	in
-		%only one sonar used in the beginning
+		% only one sonar used in the beginning
 		MaxNbPossSonar = Input.nRow + Input.nColumn
-		%aftertward detection with drones
+		% aftertward detection with drones
 		if(Input.nRow > 2*Input.drone orelse Input.nColumn > 2*Input.drone)
 			then MaxNbPossDrone = 2*Input.drone
 		else MaxNbPossDrone = {Value.Min Input.nRow Input.nColumn} end
@@ -564,24 +487,26 @@ in
 
 		FewestPoss = {Sort {ListPoss MyInfo PlayersInfo} Value.'<'}.1
 		
-		%try to charge/produce an item
-		if(FewestPoss >= MaxNbPossSonar) then Test in 
-			Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
+		% try to charge/produce an item
+		% test only used to bind Produced and NewMyInfo 
+		if(FewestPoss >= MaxNbPossSonar) then
+			Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
 		elseif(FewestPoss>=MaxNbPossDrone orelse (MyInfo.charge.drone>=1 andthen FewestPoss<MinNbPossDrone)) then
 			Test in Test = {ChargeItemSpec drone ?Produced ?NewMyInfo}
 		elseif({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
 		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})		then skip
+		% normaly never used
 		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})		then skip
 		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})		then skip
 		end
-		%bind
+
+		% bind
 		KindItem = Produced
-		%{System.show chargeItem(Produced NewMyInfo.charge NewMyInfo.fire)}
-		%return
+		% return
 		NewMyInfo
 	end
 
-	%return a list of the ennemies number possibilities
+	% return a list of the ennemies number possibilities
 	fun{ListPoss MyInfo Players}
 		if(Players == nil) then nil
 		elseif(Players.1 == null) then  {ListPoss MyInfo Players.2}
@@ -591,7 +516,7 @@ in
 		end
 	end
 
-	% return the player with the fewest poss(ecxept himself)
+	% return the player with the fewest possibilities (except himself)
 	fun{FewestPossPlayer MyInfo Players}
 		fun{FewestPossPlayerIn MyInfo Players Candidate}
 			if(Players == nil) then Candidate
@@ -608,14 +533,12 @@ in
 		end
 	end
 
-	%first try shoot a missile if is right
-	%second place a mine and shoot if ennemi damage int this round or if ennemi if has been detected
-	%third to detect ennemi
-	fun{FireItem KindFire MyInfo PlayersInfo} Fire TargetOrder FewestPoss NewMyInfo in
-		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
+	% first 	detect ennemi
+	% second 	try shoot a missile if direct shot
+	% third 	place a mine if loaded
+	fun{FireItem KindFire MyInfo PlayersInfo} Fire TargetOrder NewMyInfo in
+		Fire = MyInfo.fire % fire(mine:__ missile:__ sonar:__ drone:__)
 
-		%list of record where to shoot order with as first fewest lives
-		%{System.show before(MyInfo)}
 		TargetOrder = {FindTarget MyInfo PlayersInfo}
 		if(Fire.sonar==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
 			NewFire in
@@ -626,6 +549,7 @@ in
 		elseif(Fire.drone==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
 			FewestPoss NewFire
 		in
+			% list of record where to shoot order with as first fewest lives
 			FewestPoss = {FewestPossPlayer MyInfo PlayersInfo}
 			KindFire = {MaximizeInfoDrone FewestPoss.possibilities}
 			NewFire		= {ItemRecordChangeVal MyInfo.fire drone 0}
@@ -641,7 +565,7 @@ in
 			end
 
 		elseif(Fire.mine == 1 andthen TargetOrder\=nil) then MinePt in
-			%best option direct hit
+			% best option direct hit
 			MinePt = {FireItemSearch MyInfo TargetOrder mine}
 			if(MinePt==null) then KindFire=null NewMyInfo=MyInfo
 			else NewFire in
@@ -650,7 +574,7 @@ in
 				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt|MyInfo.mine}
 			end
 
-		%todo if not on a player, try to maximise the number of potential hits
+		% random placing a mine
 		elseif(Fire.mine == 1) then MinePt in
 			MinePt = {ValidPositionsAround MyInfo.path.1}
 			if(MinePt==null) then KindFire=null NewMyInfo=MyInfo
@@ -659,35 +583,34 @@ in
 				NewFire		= {ItemRecordChangeVal MyInfo.fire mine 0}
 				NewMyInfo	= {MyInfoChangeVal {MyInfoChangeVal MyInfo fire NewFire} mine MinePt.1|MyInfo.mine}
 			end
-
+		% nothing to do
 		else 
-			%{System.show doNothing}
 			KindFire = null
 			NewMyInfo = MyInfo
 		end
+		% return
 		NewMyInfo
 	end
 
-
+	% list of players where the position is known
 	fun{FindTargetNotOrd Players MyInfo}
-		%finish recursif call
+		% finish recursif call
 		if(Players == nil) then nil
-		%check if not dead
+		% check if not dead
 		elseif(Players.1==null orelse MyInfo.id ==null orelse (Players.1.lives==0 orelse Players.1.id==null)) then {FindTargetNotOrd Players.2 MyInfo}
-		%check if its not us
+		% check if its not us
 		elseif(MyInfo.id.id == Players.1.id) then {FindTargetNotOrd Players.2 MyInfo}
-		%target possible possitions error 
+		% target possible possitions error 
 		elseif(Players.1.possibilities == nil) then {System.show errorPossibilities(myInfo:MyInfo ennemi:Players.1)} {FindTargetNotOrd Players.2 MyInfo}
-		%target found
+		% target found
 		elseif(Players.1.possibilities.2 == nil) then Players.1 | {FindTargetNotOrd Players.2 MyInfo}
-		%target not found
+		% target not found
 		else {FindTargetNotOrd Players.2 MyInfo} end
 	end
 
-	%todo guess better the ennemies postions, here only if 100% sure
-	%return a list of players (only if 100% sure for now) ordered with first fewest lives
-	fun{FindTarget MyInfo PlayersInfo} %todo check if dead
-		%sort the player first fewest lives still alive
+	% return a list of players (only if 100% sure of position) ordered with the one first has the fewest lives
+	fun{FindTarget MyInfo PlayersInfo}
+		% sort the player first fewest lives still alive
 		fun{Sort RecordList}
 			fun{Sort2 RecordList2 Lives}
 				if(Lives>Input.maxDamage) then nil
@@ -696,7 +619,6 @@ in
 				else {Sort2 RecordList2.2 Lives} end
 			end
 		in {Sort2 RecordList 1} end
-		
 	in	{Sort {FindTargetNotOrd PlayersInfo MyInfo}} end
 
 	fun{FindClosestTarget MyInfo PlayersInfo}
@@ -712,56 +634,48 @@ in
 	in	
 		pt(x:X y:Y) = MyInfo.path.1
 		MaxManhattan = Input.nRow + Input.nColumn - (X + Y - 2)
-		%{System.show {FindTargetNotOrd PlayersInfo MyInfo}}
 		{Sort {FindTargetNotOrd PlayersInfo MyInfo} MaxManhattan}
 	end
 	
-	%return a position (to fire with a missile) or null
-	%todo better targeting
-	%todo better 1 point hit and sink than 2 point hit and not sink
+	% return a position (to fire with a missile) or null
 	% return 2 point hit, if not found a 1 point hit, if not found null
-	% problem if two ennemies have the same amount of live then it could shout a one point hit even it there is a 2 point hit
-	% help: should test all possible ennemie with the same amount of live if multiple option choose the one with 2 points
 	fun{FireItemSearch MyInfo TargetOrder Type} 
-		%no shot found
+		% no shot found
 		if(TargetOrder == nil) then null
 		else EnnemiPos MyPos MissilePos in
 			MyPos = MyInfo.path.1 
 			EnnemiPos = TargetOrder.1.possibilities.1
-			%try to find a target to hit the ennemi
+			% try to find a target to hit the ennemi
 			MissilePos = {FireItemCheck MyPos EnnemiPos Type} 
-			if(MissilePos == null) then %try find an other ennemi
+			if(MissilePos == null) then % try find an other ennemi
 				{FireItemSearch MyInfo TargetOrder.2 Type}
-			else %target found
-				%{System.show fire(type:Type myPos:MyPos hit:MissilePos ennemi:EnnemiPos)}
+			else % target found
 				MissilePos
 			end
 		end
 	end
 
-	%to remove own hits
-	%return a position to hit or null
+	% to remove own hits
+	% return a position to hit or null
 	fun{FireItemCheck MyPos KillPos Type} 
 		Min Max
-		OwnDamage TwoPoint OnePoint
+		TwoPoint OnePoint
 	in
 		case Type
 			of missile then Min=Input.minDistanceMissile Max=Input.maxDistanceMissile
 			[] mine then Min=Input.minDistanceMine Max=Input.maxDistanceMine
 		end
-		OwnDamage = {GenerateSimpleCross MyPos}
 		TwoPoint = {ManhattanCross MyPos Min Max}
 		OnePoint = {GenerateDiamond MyPos Max+1}
-		if({List.member KillPos TwoPoint}) then %two point hit
+		if({List.member KillPos TwoPoint}) then % two point hit
 			KillPos 
-		%only two pointshit with the missile
-		elseif(Type\=missile andthen {List.member KillPos OnePoint}) then %one point hit
-			%two possible shots
+		% only two points hits with the missile
+		elseif(Type\=missile andthen {List.member KillPos OnePoint}) then % one point hit
+			% two possible shots
 			TargetPts in
-			%we can shoot on islands, it will never shoot out the bounderies of the game
+			% we can shoot on islands, it will never shoot out the bounderies of the game
 			TargetPts = {GenerateSimpleCross KillPos}
-			%todo better choice
-			%try to find shooting point, never goes to check the fourth point
+			% try to find shooting point, never goes to check the fourth point
 			if({List.member TargetPts.1 TwoPoint}) then TargetPts.1
 			elseif({List.member TargetPts.2 TwoPoint}) then TargetPts.2.1
 			else TargetPts.2.2.1
@@ -772,15 +686,13 @@ in
 	end
 
 	fun{FireMine Mine MyInfo PlayersInfo} 
-		%return a MineList without the Mine
+		% return a MineList without the Mine
 		fun{MineExcl MineList Mine} 
 			if(MineList == nil) 		then nil
 			elseif(MineList.1 == Mine)	then MineList.2
 			else {MineExcl MineList.2 Mine} end
 		end
-
-		%todo better to find two points hit
-		%return <pos> or null
+		% return <pos> or null
 		fun{FindMine MineList TargetOrder}
 			% no mine found
 			if(TargetOrder == nil) then null
@@ -788,10 +700,10 @@ in
 			elseif(MineList == nil) then {FindMine MyInfo.mine TargetOrder.2}
 			else MyPos EnnemiPos CurrentMine Explosion in
 				MyPos = MyInfo.path.1
-				EnnemiPos = TargetOrder.1.possibilities.1 %assume only one poss
-				CurrentMine = MineList.1 %CurrentMine = <pos>
+				EnnemiPos = TargetOrder.1.possibilities.1 % assume only one possibilities
+				CurrentMine = MineList.1 % CurrentMine = <pos>
 				Explosion = CurrentMine|{ValidPositionsAround CurrentMine}
-				%do not fire even if the ennemi loses more lives than we do
+				% do not fire even if the ennemi loses more lives than we do
 				if({List.member MyPos Explosion}) then {FindMine MineList.2 TargetOrder}
 				elseif({List.member EnnemiPos Explosion}) then CurrentMine
 				else {FindMine MineList.2 TargetOrder}
@@ -801,30 +713,30 @@ in
 
 		TargetOrder NewMyInfo 
 	in 
-		%{System.show startMine}
 		TargetOrder = {FindTarget MyInfo PlayersInfo}
 		Mine = {FindMine MyInfo.mine TargetOrder}
-		%{System.show Mine}%{System.show MyInfo.mine}{Time.delay 1000}
-		if(Mine\=null)then
+		if(Mine \= null) then
 			NewMyInfo = {MyInfoChangeVal MyInfo mine {MineExcl MyInfo.mine Mine}}
-		else NewMyInfo=MyInfo
+		else 
+			NewMyInfo=MyInfo
 		end
+		% return
 		NewMyInfo
 	end
 
 % ------------------------------------------  
 % Detection
 % ------------------------------------------
-	fun{InfoLine Type Number Poss} Line Tmp in
+	% return the number of possibilities in the row/column 
+	fun{InfoLine Type Number Poss} Line in
 		case Type 
 			of row 		then Line = {GenerateRow Number}
 			[] column 	then Line = {GenerateColumn Number}
 		end
-		Tmp = {ListPtAnd Poss Line}
-		%{System.show infoLine(Type Number Poss {List.length Tmp})}
-		{List.length Tmp}
+		{List.length {ListPtAnd Poss Line}}
 	end
 
+	% return a list with each element being the number possibilities on that row
 	fun{InfoRow Poss}
 		fun{InfoRowIn Number}
 			if(Number>Input.nRow) then nil
@@ -832,6 +744,7 @@ in
 		end
 	in {InfoRowIn 1} end
 
+	% return a list with each element being the number possibilities on that column
 	fun{InfoCol Poss}
 		fun{InfoColIn Number}
 			if(Number>Input.nColumn) then nil
@@ -839,6 +752,7 @@ in
 		end
 	in {InfoColIn 1} end
 
+	% return the max value of the list, without the value
 	fun{GetPos List Value}
 		fun{GetPosIn List Value Nb}
 			if(List.1 == Value) then Nb
@@ -855,22 +769,21 @@ in
 		else LineCandidate+1 end
 	end
 
-		% return the Line number that is the biggest
-	fun{MaxLineIncl ListLine} Biggest in
-		Biggest = {Sort ListLine Value.'>'}.1
+	% return the Line number that is the biggest
+	fun{MaxLineIncl ListLine}
+		{Sort ListLine Value.'>'}.1
 	end
 
+	% return a point with one coordinate being the player and the other not
+	% the point is selected to minimize the information given to the other players
 	fun{MinimizeInfoSonar Pt Poss} X Y Rows Cols MaxRow MaxCol RowTrue ColTrue in
 		pt(x:X y:Y) = Pt
 		Rows 	= {InfoRow Poss}
 		Cols 	= {InfoCol Poss}
-		%{System.show inMini(rows:Rows Cols)}
 		MaxRow	= {MaxLineExcl Rows X}
 		MaxCol	= {MaxLineExcl Cols Y}
-		%{System.show inMini(maxRows:MaxRow MaxCol)}
 		RowTrue	= {List.nth Rows X} + {List.nth Cols MaxCol}
 		ColTrue	= {List.nth Cols Y} + {List.nth Rows MaxRow} 
-		%{System.show possAfter(row:RowTrue col:ColTrue )}
 		if(RowTrue > ColTrue) then
 			pt(x:X y:MaxCol)
 		else 
@@ -878,8 +791,9 @@ in
 		end
 	end	
 
-	fun{MaximizeInfoDrone Poss} Rows Cols MaxRow MaxCol  RowTrue ColTrue in
-		% zeros, ones with maybe one value >1
+	% return the most pertinent point to ask, to maximise the received information
+	fun{MaximizeInfoDrone Poss} Rows Cols MaxRow MaxCol in
+		% zeros, ones with maybe one value>1
 		Rows 	= {InfoRow Poss}
 		Cols 	= {InfoCol Poss}
 		% line number with the biggest value
@@ -887,13 +801,13 @@ in
 		MaxCol	= {MaxLineIncl Cols}
 		% check wheter one or two lines
 		if({List.nth Cols MaxCol} > 1 andthen {List.nth Rows MaxRow} > 1) then
-			%here two lines
+			% here two lines
 			drone(row {List.nth Rows MaxRow})
 		elseif({List.nth Cols MaxCol} > 1) then 
-			%here one column
+			% here one column
 			drone(column {List.nth Cols MaxCol})
 		else 
-			%here one row
+			% here one row
 			drone(row {List.nth Rows MaxRow})
 		end
 	end	
@@ -915,15 +829,15 @@ in
 		else
 			case PlayersInfo
 			of nil then nil
-			%dead player
+			% dead player
 			[] null|Next then PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
-			%dead player
+			% dead player
 			[] player(null)|Next then
 					PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
 			[] player(id:null lives:_ possibilities:_ surface:_ charge:_)|Next then
 					PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
 			[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
-				if (ID == WantedID.id) then %todo change in StartPlayer
+				if (ID == WantedID.id) then
 					{Fun Args PlayersInfo.1}|Next
 				else
 					PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
@@ -933,12 +847,11 @@ in
 	end
 
 	% Move broadcasted, try to locate all players based only by elemination of possibilities 
-	% Args: arguments(direction:___)
+	% Args: arguments(direction:_)
 	fun{SayMove Args Player} NewPossibilities in 
 		NewPossibilities = {ValidPositions {NewPositionList Player.possibilities Args.direction}}
-		%{PrettyPrintMap NewPossibilities}
 		% Return
-		{PlayerChangeVal Player possibilities NewPossibilities} %todo do we set surface to false?
+		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
 
 	% Update Player.surface when player has surfaced
@@ -966,30 +879,6 @@ in
 		{PlayerChangeVal Player charge NewCharge}
 	end
 
-	% On missile explosion, edit my info and send message back
-	fun{SayMissileExplodeMyInfo MyInfo Pos ?Message} DamageTaken NewMyInfo in
-		% Compute damage taken
-		case {ManhattanDistance MyInfo.path.1 Pos}
-			of 1 then	DamageTaken = 1
-			[] 0 then	DamageTaken = 2
-			else 		DamageTaken = 0
-		end
-		% Send message
-		if DamageTaken == 0 then 
-			Message = null
-			NewMyInfo = MyInfo
-		elseif MyInfo.lives =< DamageTaken then 
-			Message = sayDeath(MyInfo.id)
-			% Change MyInfo.id to null & lives to lives-DamageTaken
-			NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
-		else 
-			Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
-			NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
-		end
-		% Change MyInfo.lives to lives-DamageTaken
-		NewMyInfo
-	end
-
 	% On missile explosion, edit missile charge status
 	% Args: arguments() [no arguments]
 	fun{SayMissileExplodeMissileStatus Args Player} NewCharge in
@@ -999,9 +888,7 @@ in
 		{PlayerChangeVal Player charge NewCharge}
 	end
 	
-	% Edit MyInfo on mine explosion
-	%todo either combine SayMineExplodeMyInfo and SayMissileExplodeMyInfo or find something to distinguish
-	fun{SayMineExplodeMyInfo MyInfo Pos Message} DamageTaken NewMyInfo in
+	fun{SayExplosionMyInfo MyInfo Pos Message} DamageTaken NewMyInfo in
 		% Compute damage taken
 		case {ManhattanDistance MyInfo.path.1 Pos}
 			of 1 then	DamageTaken = 1
@@ -1016,16 +903,18 @@ in
 			Message = sayDeath(MyInfo.id)
 			% Change MyInfo.id to null & lives to lives-DamageTaken
 			NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
+		elseif MyInfo.lives == 0 then 
+			Message = sayDeath(MyInfo.id)
+			NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives 0} id null}
 		else 
 			Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
 			NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
 		end
-		% Return edited MyInfo
+		% Return
 		NewMyInfo
 	end
 	
-	% Passing drone 
-	%todo add the info to our player in PlayersInfo
+	% Answer to other players drone
 	% Args : arguments(drone:Drone id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingDrone Args Player} Drone ID Answer MyInfo NewCharge in
 		% Get info
@@ -1033,11 +922,9 @@ in
 		% Return info
 		ID = MyInfo.id
 		case Drone
-			of drone(row X) 	then Answer=(MyInfo.path.1.x == X)
-			[] drone(column Y)	then Answer=(MyInfo.path.1.y == Y)
+			of drone(row X) 	then Answer = (MyInfo.path.1.x == X)
+			[] drone(column Y)	then Answer = (MyInfo.path.1.y == Y)
 		end
-
-		%{System.show sayPassingDrone(mypos:MyInfo.path.1 ask:Drone ans:Answer)}
 		% Edit charge
 		NewCharge = {ItemRecordChangeVal Player.charge drone 0}
 		% Return
@@ -1045,12 +932,12 @@ in
 	end
 	
 	% Update information about the player possible positions
-	fun{SayAnswerDrone Args Player} %todo error in understanding DID (not used)
+	fun{SayAnswerDrone Args Player}
 		NewPossibilities
-		Drone DID Answer
+		Drone Answer
 		PPoss
 	in
-		arguments(drone:Drone id:DID answer:Answer) = Args
+		arguments(drone:Drone id:_ answer:Answer) = Args
 		PPoss = Player.possibilities
 		% Calculate
 		case Drone 
@@ -1063,7 +950,6 @@ in
 			else NewPossibilities = {ValidPositions {ListPtExcl PPoss {GenerateColumn Y}}}
 			end
 		end
-		%{System.show sayAnswerDrone(ans:Answer old:PPoss new:NewPossibilities)}
 		% Return
 		{PlayerChangeVal Player possibilities NewPossibilities}
 	end
@@ -1074,25 +960,11 @@ in
 	fun {SayPassingSonar Args Player} 
 		ID Answer MyInfo NewCharge 
 	in
-		%{System.show sayPassingSonar(Args Player)}
 		% Get info
 		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
 		% Return info
 		ID = MyInfo.id
 		Answer = {MinimizeInfoSonar MyInfo.path.1 Player.possibilities}
-		%todo minimize info given by given position with the fewest information
-		%todo update player info with the infomaration that we have given 
-
-		% choose randomly X or Y and send back information
-		% case ({OS.rand} mod 2)
-		% of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
-		% [] 1 then Answer = pt(x:(({OS.rand} mod Input.nColumn)+1) y:MyInfo.path.1.y)
-		% end
-
-		%{System.show sayPassingSonar}
-		%{System.show mini(id:ID poss:{List.length Player.possibilities} result:{MinimizeInfoSonar MyInfo.path.1 Player.possibilities})}
-		
-
 		% Edit charge
 		NewCharge = {ItemRecordChangeVal Player.charge sonar 0}
 		% Return
@@ -1120,7 +992,6 @@ in
 	
 	% Simply removing player from PlayersInfo if he is dead
 	fun{SayDeath ID PlayersInfo}
-		%{System.show iAmDead(id:ID.id)}
 		case PlayersInfo
 		of nil then nil
 		[] player(id:PlayerID lives:_ possibilities:_ surface:_ charge:_)|Next then
@@ -1146,15 +1017,11 @@ in
 % TreatStream
 % ------------------------------------------
 	proc{TreatStream Stream MyInfo PlayersInfo}
-		%if(MyInfo.id==null)then
-		%	case Stream of Mes|_ then {System.show deadPlayerStream(Mes)}
-		%	else skip end
-		%else skip end
 		case Stream
 		of nil then skip
-
 		[]initPosition(?ID ?Pos)|T then NewMyInfo in
-			NewMyInfo = {InitPosition ID Pos MyInfo} %MyInfo=myInfo(id:_)
+			% MyInfo=myInfo(id:_)
+			NewMyInfo = {InitPosition ID Pos MyInfo} 
 			{TreatStream T NewMyInfo PlayersInfo}
 		
 		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
@@ -1168,7 +1035,6 @@ in
 		[]chargeItem(?ID ?KindItem)|T then NewMyInfo in
 			ID=MyInfo.id
 			NewMyInfo = {ChargeItem KindItem MyInfo PlayersInfo}
-			%{System.show chargeItem(KindItem)}
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]fireItem(?ID ?KindFire)|T then NewMyInfo in
@@ -1198,14 +1064,10 @@ in
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayMinePlaced arguments()}}
 		
 		[]sayMissileExplode(ID Position ?Message)|T then
-			% edit MyInfo (lives) and send Message back
-			% edit specific player's info (charge.missile)
-			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position ?Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
-			% edit PlayersInfo's lives will be done with sayDamageTaken
+			{TreatStream T {SayExplosionMyInfo MyInfo Position ?Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
 		
-		%todo, reflection: do we add the possible position of the mine, because actually we do not? I don't think we should for the random basic player... for the intelligent, maybe when we have a better idea of where the player is
-		[]sayMineExplode(ID Position ?Message)|T then 
-			{TreatStream T {SayMineExplodeMyInfo MyInfo Position Message} PlayersInfo}
+		[]sayMineExplode(_ Position ?Message)|T then 
+			{TreatStream T {SayExplosionMyInfo MyInfo Position Message} PlayersInfo}
 		
 		[]sayPassingDrone(Drone ?ID ?Answer)|T then
 			ID = MyInfo.id
@@ -1214,21 +1076,17 @@ in
 		[]sayAnswerDrone(Drone ID Answer)|T then 
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerDrone arguments(drone:Drone id:ID answer:Answer)}}
 		
-		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
 		[]sayPassingSonar(?ID ?Answer)|T then
 			ID = MyInfo.id
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayPassingSonar arguments(id:ID answer:Answer myInfo:MyInfo)}}
 		
 		[]sayAnswerSonar(ID Answer)|T then
-			%todo problems might occur if answer isn't "pt(x:<x> y:<y>)" but normally it's correct
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerSonar arguments(position:Answer)}}
 		
 		[]sayDeath(ID)|T then
-			% Dead player removed from player list
 			{TreatStream T MyInfo {SayDeath ID PlayersInfo}}
 		
 		[]sayDamageTaken(ID Damage LifeLeft)|T then 
-			%todo modify PlayersInfo with PlayerModification
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayDamageTaken arguments(damage:Damage lifeLeft:LifeLeft)}}
 		
 		[] _|T then
@@ -1236,46 +1094,3 @@ in
 		end
 	end
 end
-
-
-% todo delete these comments ?
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	%message to be handled
-
-	%initPosition(?ID ?Position)
-	%move(?ID ?Position ?Direction)
-	%dive
-	%chargeItem(?ID ?KindItem)
-	%fireItem(?ID ?KindFire)
-	%fireMine(?ID ?Mine)
-	%isDead(?Answer)
-	%sayMove(ID Direction)
-	%saySurface(ID)
-	%sayCharge(ID KindItem)
-	%sayMinePlaced(ID)
-	%sayMissileExplode(ID Position ?Message)
-	%sayMineExplode(ID Position ?Message)
-	%sayPassingDrone(Drone ?ID ?Answer)
-	%sayAnswerDrone(Drone ID Answer)
-	%sayPassingSonar(?ID ?Answer)
-	%sayAnswerSonar(ID Answer)
-	%sayDeath(ID)
-	%sayDamageTaken(ID Damage LifeLeft)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%EBNF
-%<id> ::= null | id(id:<idNum> color:<color> name:Name)
-	%<idNum> ::= 1 | 2 | ... | Input.nbPlayer
-	%<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
-		%<colorNum> ::= 0 | 1 | ... | 255
-
-%<position> ::= pt(x:<row> y:<column>)
-	%<row> ::= 1 | 2 | ... | Input.nRow
-	%<column> ::= 1 | 2 | ... | Input.nColumn
-
-%<direction> ::= <carddirection> | surface
-	%<carddirection> ::= east | north | south | west
-
-%<item> ::= null | mine | missile | sonar | drone
-%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
-	%<drone> ::= drone(row <x>) | drone(column <y>)
-	%<mine> ::= null | <position>
