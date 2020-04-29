@@ -369,7 +369,7 @@ in
 			else
 				% Player's turn is over
 				if {Not {Move CurrentPlayer}} then 
-					{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer 0}} % todo 0 or 1, do not understand the rules
+					{TurnByTurn {NextPlayer CurrentPlayer} {ArrayReplace TimeAtSurface CurrentPlayer 0}}
 				% Player's turn continues
 				else
 					% Charge an item
@@ -391,9 +391,7 @@ in
 	proc{AllSimultaneous}
 		proc{OneSimultaneous CurrentPlayer Surface}
 			% Check if player is dead
-			%{System.show {CountPlayersAlive}}
 			if {IsDead {List.nth Players CurrentPlayer}} then 
-				%{System.show playerIsDead(CurrentPlayer)}
 				skip
 			elseif {CountPlayersAlive} =< 1 then
 				{System.show 'End of the game'}
@@ -457,9 +455,8 @@ in
 	% When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input)
 	if (Input.isTurnByTurn) then
 		{TurnByTurn 1 {GenerateZeroList Input.nbPlayer}}
-		{System.show program_end}
+		{System.show 'End of the game'}
 	else
 		{AllSimultaneous}
-		% No show program end because it will get here before program ends
 	end
 end

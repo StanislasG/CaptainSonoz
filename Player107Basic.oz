@@ -71,9 +71,9 @@ in
 % 		- id: my ID, id(id:___ color:___ name:___)
 % 		- lives: the number of lives left
 % 		- path: my path, list of pt(x:___ y:___) where path.1 = position
-%		- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
-%		- fire: for mine, missile, sonar, drone 0 (not charged) or 1 (charged)
-%		- mine: list of mine(<pos>)
+%			- charge: from 0 to Input.Mine / Input.Sonar / ..., if Input.Mine reach the item is loaded and ready to be fired
+%			- fire: for mine, missile, sonar, drone 0 (not charged) or 1 (charged)
+%			- mine: list of mine(<pos>)
 % 
 % player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
 % 		- id: to match ID sent by main
@@ -163,31 +163,32 @@ in
 % Point cloud generators
 % ------------------------------------------
 	% Return a list where elements must in List1 and List2
-	fun{ListPtAnd List1 List2} %answer:true, 
+	fun{ListPtAnd List1 List2} 
 		if(List1==nil) 		then nil
 		elseif(List2==nil)	then nil
 		else R1 R2 C1 C2 T1 T2 in
 			pt(x:R1 y:C1)|T1=List1    
 			pt(x:R2 y:C2)|T2=List2
-			if(C1>C2) 		then {ListPtAnd List1 T2} %List2 is behind List1
+			if(C1>C2) 		then {ListPtAnd List1 T2}
 			elseif(C1<C2)	then {ListPtAnd T1 List2}
 			elseif(R1>R2)	then {ListPtAnd List1 T2}
 			elseif(R1<R2)	then {ListPtAnd T1 List2}
 			else pt(x:R1 y:C1)|{ListPtAnd T1 T2} end
 		end
 	end
+
 	% Return the list ListRef without the elements ListExcl
-	fun{ListPtExcl ListRef ListExcl} %answer:false
+	fun{ListPtExcl ListRef ListExcl}
 		if(ListRef==nil) 		then nil
 		elseif(ListExcl==nil)	then ListRef
 		else R1 R2 C1 C2 T1 T2 in
 			pt(x:R1 y:C1)|T1=ListRef    
 			pt(x:R2 y:C2)|T2=ListExcl
-			if(C1>C2) 		then {ListPtAnd ListRef T2} %ListExcl is behind ListRef
+			if(C1>C2) 		then {ListPtAnd ListRef T2}
 			elseif(C1<C2)	then pt(x:R1 y:C1)|{ListPtAnd T1 ListExcl}
 			elseif(R1>R2)	then {ListPtAnd ListRef T2}
 			elseif(R1<R2)	then pt(x:R1 y:C1)|{ListPtAnd T1 ListExcl}
-			else {ListPtAnd T1 T2} end %same point, must be excl
+			else {ListPtAnd T1 T2} end % same point, must be excl
 		end
 	end
 
@@ -197,7 +198,7 @@ in
 	% Generate a list of points with the right rownumber with bound and With a Start and End
 	fun{GeneratePartRow RowNumber StartCol EndCol}
 		fun{GenerateRowCol ColumnNumber}
-			if (ColumnNumber>EndCol orelse ColumnNumber>Input.nColumn) then nil %todo check == or =>
+			if (ColumnNumber>EndCol orelse ColumnNumber>Input.nColumn) then nil 
 			else pt(x:RowNumber y:ColumnNumber) | {GenerateRowCol ColumnNumber+1} end
 		end
 	in
@@ -233,9 +234,10 @@ in
 
 % ------------------------------------------
 % Record modification
+% variables can be added here if needed
 % ------------------------------------------
 	% Return a MyInfo record with one label changed
-	fun{MyInfoChangeVal Record Label NewVal} ID Lives Path Charge Fire Mine in %add if needed
+	fun{MyInfoChangeVal Record Label NewVal} ID Lives Path Charge Fire Mine in
 		myInfo(id:ID lives:Lives path:Path charge:Charge fire:Fire mine:Mine) = Record
 		case Label 
 			of id 			then myInfo(id:NewVal lives:Lives path:Path charge:Charge fire:Fire mine:Mine)
