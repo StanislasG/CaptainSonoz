@@ -242,8 +242,8 @@ in
 		case State
 		of nil then nil
 		[] guiPlayer(id:ID score:HandleScore submarine:Handle mines:M path:P)|Next then
-			{HandleScore set(0)}
 			if (ID == WantedID) then
+				{HandleScore set(0)}
 				for H in P do
 					{RemoveItem Grid H}
 				end

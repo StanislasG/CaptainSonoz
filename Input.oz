@@ -278,7 +278,7 @@ in
 
 	% Small number of players
 	NbPlayer = 4
-	Players = [player2 player2 player2 player2]
+	Players = [player1 player1 player1 player1]
 	Colors = [red blue green yellow]
 
 %%%% Thinking parameters (only in simultaneous) %%%%

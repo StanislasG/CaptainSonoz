@@ -235,12 +235,17 @@ in
 					% Broadcast information and update GUI
 					case Message
 					of null then skip
-					[] sayDamageTaken(PlayerID DamageTaken LifeLeft) then 
-						{Broadcast Message}
-						{Send GuiPort lifeUpdate(PlayerID LifeLeft)}
+					[] sayDamageTaken(PlayerID DamageTaken LifeLeft) then
+						if PlayerID \= null then
+							{Broadcast Message}
+							{Send GuiPort lifeUpdate(PlayerID LifeLeft)}
+						end
 					[] sayDeath(PlayerID) then
-						{Broadcast Message}
-						{Send GuiPort removePlayer(PlayerID)}
+						if PlayerID \= null then
+							{Broadcast Message}
+							{Send GuiPort lifeUpdate(PlayerID 0)}
+							{Send GuiPort removePlayer(PlayerID)}
+						end
 					end
 				end
 				{DamagingItemRecursive ID Position KindItem T}

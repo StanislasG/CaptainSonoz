@@ -974,7 +974,7 @@ in
 		% Send message
 		if DamageTaken == 0 then 
 			Message = null
-			NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
+			NewMyInfo = MyInfo
 		elseif MyInfo.lives =< DamageTaken then 
 			Message = sayDeath(MyInfo.id)
 			% Change MyInfo.id to null & lives to lives-DamageTaken
