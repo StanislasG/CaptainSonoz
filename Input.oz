@@ -46,61 +46,6 @@ define
 	MapGenerator
 in
 
-%%%% Style of game %%%%
-
-	IsTurnByTurn = true
-
-%%%% Description of the map %%%%
-
-	NRow = 6
-	NColumn = 10
-
-	Map = [ [0 0 0 0 0 0 0 0 0 0]
-					[0 0 0 0 0 0 0 0 0 0]
-					[0 0 0 1 1 0 0 0 0 0]
-					[0 0 1 1 0 0 1 0 0 0]
-					[0 0 0 0 0 0 0 0 0 0]
-					[0 0 0 0 0 0 0 0 0 0]]
-	% Map = {MapGenerator [1 4 2]}
-
-%%%% Players description %%%%
-
-	NbPlayer = 2
-	Players = [player1 player1]
-	Colors = [blue green]
-
-%%%% Thinking parameters (only in simultaneous) %%%%
-
-	ThinkMin = 500
-	ThinkMax = 3000
-
-%%%% Surface time/turns %%%%
-
-	TurnSurface = 3
-
-%%%% Life %%%%
-
-	MaxDamage = 4
-
-%%%% Number of load for each item %%%%
-
-	Missile = 3
-	Mine = 3
-	Sonar = 3
-	Drone = 3
-
-%%%% Distances of placement %%%%
-
-	MinDistanceMine = 1
-	MaxDistanceMine = 2
-	MinDistanceMissile = 1
-	MaxDistanceMissile = 4
-
-%%%% Waiting time for the GUI between each effect %%%%
-
-	GUIDelay = 500 % ms
-
-
 % ----------------------------------------------------------------
 % Generate a map
 % ----------------------------------------------------------------
@@ -222,7 +167,7 @@ in
 
 		% Change the value at pt(x:X y:Y) to the island value
 		fun {MakeIsland Pos IslandValue FlatMap}
-			{List.append {List.take FlatMap ({GetIndex Pos}-1)} IslandValue|{List.drop List {GetIndex Pos}}}
+			{List.append {List.take FlatMap ({GetIndex Pos}-1)} IslandValue|{List.drop FlatMap {GetIndex Pos}}}
 		end
 
 		% Gives all the positions where an island can expand
@@ -234,10 +179,10 @@ in
 		fun {GenerateIsland Pos Size IslandValue FlatMap}
 			% Returns an island expanded by Size tiles
 			fun {ExpandIsland PosList Size IslandValue FlatMap}
-				Slots Chosen NewFlatMap
-			in
-				if size == 0 then FlatMap
+				if Size =< 0 then FlatMap
 				else 
+					Slots Chosen NewFlatMap
+				in
 					% Get the possibilities
 					Slots = {ExpansionSlots PosList IslandValue FlatMap}
 					if Slots == nil then FlatMap
@@ -254,7 +199,6 @@ in
 		in
 			{ExpandIsland Pos|nil Size IslandValue FlatMap}
 		end
-
 		% Generate the list of islands and return the FlatMap
 		fun {GenerateIslandList IslandSizes FlatMap}
 			% Recursive
@@ -286,4 +230,64 @@ in
 		FlatMap = {GenerateIslandList IslandSizes EmptyFlatMap}
 		{Format FlatMap}
 	end
+
+
+% ----------------------------------------------------------------
+% Input Variables
+% ----------------------------------------------------------------
+
+%%%% Style of game %%%%
+
+	IsTurnByTurn = true
+
+%%%% Description of the map %%%%
+
+	NRow = 15
+	NColumn = 20
+
+	% Map = [ [0 0 0 0 0 0 0 0 0 0]
+	% 				[0 0 0 0 0 0 0 0 0 0]
+	% 				[0 0 0 1 1 0 0 0 0 0]
+	% 				[0 0 1 1 0 0 1 0 0 0]
+	% 				[0 0 0 0 0 0 0 0 0 0]
+	% 				[0 0 0 0 0 0 0 0 0 0]]
+	Map = {MapGenerator [7 7 7 7 7 7 7 7 7 7 7]}
+
+%%%% Players description %%%%
+
+	NbPlayer = 2
+	Players = [player2 player2]
+	Colors = [blue green]
+
+%%%% Thinking parameters (only in simultaneous) %%%%
+
+	ThinkMin = 500
+	ThinkMax = 3000
+
+%%%% Surface time/turns %%%%
+
+	TurnSurface = 3
+
+%%%% Life %%%%
+
+	MaxDamage = 4
+
+%%%% Number of load for each item %%%%
+
+	Missile = 3
+	Mine = 3
+	Sonar = 3
+	Drone = 3
+
+%%%% Distances of placement %%%%
+
+	MinDistanceMine = 1
+	MaxDistanceMine = 2
+	MinDistanceMissile = 1
+	MaxDistanceMissile = 4
+
+%%%% Waiting time for the GUI between each effect %%%%
+
+	GUIDelay = 500 % ms
+
 end
