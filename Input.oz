@@ -103,9 +103,11 @@ in
 		fun {East  Pos} pt(x:Pos.x   y:Pos.y+1) end
 		fun {West  Pos} pt(x:Pos.x   y:Pos.y-1) end
 
-		% Checks if position is out of bounds
+		% Checks if a position is valid for an island
+		% 	makes islands not touch the sides to avoid trapping a player in a 1x1 square 
+		% 	(note: this can still happen with 3x3 7 or 8-tiles islands with a hole in the center, but is very unlikely as the chances of generating an island on a tile depend on the number of island tiles adjacent to it (strictly))
 		fun {ValidPosition Pos}
-			(Pos.x > 0 andthen Pos.y > 0 andthen Pos.x =< NRow andthen Pos.y =< NColumn)
+			(Pos.x > 1 andthen Pos.y > 1 andthen Pos.x < NRow andthen Pos.y < NColumn)
 		end
 
 		% Returns only the valid positions in the list
@@ -130,13 +132,12 @@ in
 						{West  Pos} {North {West  Pos}}] }
 		end
 
-		% Get positions directly adjacent (in the cardinal directions)
-		fun {StrictlyAround Pos}
-			{ValidPositionList [{North Pos} {East Pos} {South Pos} {West Pos} ]}
-		end
-		% Applied to a list :
-		fun {StrictlyAroundList PosList}
-			{List.flatten {List.map PosList StrictlyAround}}
+		% Get positions directly adjacent (in the cardinal directions) to the positions in the list
+		fun {StrictlyAround PosList}
+			case PosList of nil then nil
+			[] H|T then
+				{North H} | {East H} | {South H} | {West H} | {StrictlyAround T}
+			end
 		end
 
 		% Checks if a position can be attached to an island without merging
@@ -145,13 +146,18 @@ in
 				case PosList
 				of nil then true
 				[] H|T then 
+					% if a good expansion slot
 					if {GetIslandValue H FlatMap} == IslandValue orelse {GetIslandValue H FlatMap} == 0 then {IsValidRecursive T IslandValue FlatMap}
 					else false
 					end
 				end
 			end
 		in
-			{IsValidRecursive {Around Pos} IslandValue FlatMap}
+			% if out of bounds 
+			if {Not {ValidPosition Pos}} then false
+			elseif {GetIslandValue Pos FlatMap} \= 0 then false
+			else {IsValidRecursive {Around Pos} IslandValue FlatMap}
+			end
 		end
 
 		% Returns only the valid positions in the list
@@ -172,14 +178,14 @@ in
 
 		% Gives all the positions where an island can expand
 		fun {ExpansionSlots IslandList IslandValue FlatMap}
-			{IsValidList {StrictlyAroundList IslandList} IslandValue FlatMap}
+			{IsValidList {StrictlyAround IslandList} IslandValue FlatMap}
 		end
 
 		% Generate an island of a certain size around a point if the island is constraint by other near islands and can't expand more, smaller-than-size islands can happen
 		fun {GenerateIsland Pos Size IslandValue FlatMap}
 			% Returns an island expanded by Size tiles
 			fun {ExpandIsland PosList Size IslandValue FlatMap}
-				if Size =< 0 then FlatMap
+				if Size =< 1 then FlatMap
 				else 
 					Slots Chosen NewFlatMap
 				in
@@ -199,27 +205,33 @@ in
 		in
 			{ExpandIsland Pos|nil Size IslandValue FlatMap}
 		end
+
 		% Generate the list of islands and return the FlatMap
 		fun {GenerateIslandList IslandSizes FlatMap}
-			% Recursive
-			fun {GenerateIslandListRecursive IslandSizes IslandValue FlatMap}
+			% Recursive, TimesTried is to avoid infinite loop
+			fun {GenerateIslandListRecursive IslandSizes IslandValue FlatMap TimesTried}
 				case IslandSizes
 				of nil then FlatMap
 				[] H|T then Pos in
-					% Get a random position & check if it is a valid starting point for an island
-					Pos = pt(x:(({OS.rand} mod NRow) + 1) y:(({OS.rand} mod NColumn) + 1))
-					if {IsValid Pos IslandValue FlatMap} then NewFlatMap in
-						% Create a new island & recursive call
-						NewFlatMap = {GenerateIsland Pos H IslandValue FlatMap}
-						{GenerateIslandListRecursive T IslandValue+1 NewFlatMap}
+					% Avoid infinite loops
+					if TimesTried == 0 then 
+						{GenerateIslandListRecursive T IslandValue+1 FlatMap NRow*NColumn}
 					else
-						% Just try again
-						{GenerateIslandListRecursive IslandSizes IslandValue FlatMap}
+						% Get a random position & check if it is a valid starting point for an island
+						Pos = pt(x:(({OS.rand} mod NRow) + 1) y:(({OS.rand} mod NColumn) + 1))
+						if {IsValid Pos IslandValue FlatMap} then NewFlatMap in
+							% Create a new island & recursive call
+							NewFlatMap = {GenerateIsland Pos H IslandValue {MakeIsland Pos IslandValue FlatMap}}
+							{GenerateIslandListRecursive T IslandValue+1 NewFlatMap NRow*NColumn}
+						else
+							% Just try again
+							{GenerateIslandListRecursive IslandSizes IslandValue FlatMap TimesTried-1}
+						end
 					end
 				end
 			end
 		in
-			{GenerateIslandListRecursive IslandSizes 1 FlatMap}
+			{GenerateIslandListRecursive IslandSizes 1 FlatMap NRow*NColumn}
 		end
 
 		% Local variables
@@ -242,8 +254,8 @@ in
 
 %%%% Description of the map %%%%
 
-	NRow = 15
-	NColumn = 20
+	NRow = 5
+	NColumn = 5
 
 	% Map = [ [0 0 0 0 0 0 0 0 0 0]
 	% 				[0 0 0 0 0 0 0 0 0 0]
@@ -251,7 +263,7 @@ in
 	% 				[0 0 1 1 0 0 1 0 0 0]
 	% 				[0 0 0 0 0 0 0 0 0 0]
 	% 				[0 0 0 0 0 0 0 0 0 0]]
-	Map = {MapGenerator [7 7 7 7 7 7 7 7 7 7 7]}
+	Map = {MapGenerator [5 3]}
 
 %%%% Players description %%%%
 
