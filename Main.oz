@@ -254,7 +254,7 @@ in
 						% Broadcast information and update GUI
 						case Message
 						of null then skip
-						[] sayDamageTaken(PlayerID DamageTaken LifeLeft) then
+						[] sayDamageTaken(PlayerID _ LifeLeft) then
 							if PlayerID \= null then
 								{Broadcast Message}
 								{Send GuiPort lifeUpdate(PlayerID LifeLeft)}
