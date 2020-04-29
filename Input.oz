@@ -1,99 +1,289 @@
 functor
+import
+	OS
 export
-   isTurnByTurn:IsTurnByTurn
-   nRow:NRow
-   nColumn:NColumn
-   map:Map
-   nbPlayer:NbPlayer
-   players:Players
-   colors:Colors
-   thinkMin:ThinkMin
-   thinkMax:ThinkMax
-   turnSurface:TurnSurface
-   maxDamage:MaxDamage
-   missile:Missile
-   mine:Mine
-   sonar:Sonar
-   drone:Drone
-   minDistanceMine:MinDistanceMine
-   maxDistanceMine:MaxDistanceMine
-   minDistanceMissile:MinDistanceMissile
-   maxDistanceMissile:MaxDistanceMissile
-   guiDelay:GUIDelay
+	isTurnByTurn:IsTurnByTurn
+	nRow:NRow
+	nColumn:NColumn
+	map:Map
+	nbPlayer:NbPlayer
+	players:Players
+	colors:Colors
+	thinkMin:ThinkMin
+	thinkMax:ThinkMax
+	turnSurface:TurnSurface
+	maxDamage:MaxDamage
+	missile:Missile
+	mine:Mine
+	sonar:Sonar
+	drone:Drone
+	minDistanceMine:MinDistanceMine
+	maxDistanceMine:MaxDistanceMine
+	minDistanceMissile:MinDistanceMissile
+	maxDistanceMissile:MaxDistanceMissile
+	guiDelay:GUIDelay
 define
-   IsTurnByTurn
-   NRow
-   NColumn
-   Map
-   NbPlayer
-   Players
-   Colors
-   ThinkMin
-   ThinkMax
-   TurnSurface
-   MaxDamage
-   Missile
-   Mine
-   Sonar
-   Drone
-   MinDistanceMine
-   MaxDistanceMine
-   MinDistanceMissile
-   MaxDistanceMissile
-   GUIDelay
+	IsTurnByTurn
+	NRow
+	NColumn
+	Map
+	NbPlayer
+	Players
+	Colors
+	ThinkMin
+	ThinkMax
+	TurnSurface
+	MaxDamage
+	Missile
+	Mine
+	Sonar
+	Drone
+	MinDistanceMine
+	MaxDistanceMine
+	MinDistanceMissile
+	MaxDistanceMissile
+	GUIDelay
+	MapGenerator
 in
 
 %%%% Style of game %%%%
 
-   IsTurnByTurn = true
+	IsTurnByTurn = true
 
 %%%% Description of the map %%%%
 
-   NRow = 6
-   NColumn = 10
+	NRow = 6
+	NColumn = 10
 
-   Map = [[0 0 0 0 0 0 0 0 0 0]
-	  [0 0 0 0 0 0 0 0 0 0]
-	  [0 0 0 1 1 0 0 0 0 0]
-	  [0 0 1 1 0 0 1 0 0 0]
-	  [0 0 0 0 0 0 0 0 0 0]
-	  [0 0 0 0 0 0 0 0 0 0]]
+	Map = [ [0 0 0 0 0 0 0 0 0 0]
+					[0 0 0 0 0 0 0 0 0 0]
+					[0 0 0 1 1 0 0 0 0 0]
+					[0 0 1 1 0 0 1 0 0 0]
+					[0 0 0 0 0 0 0 0 0 0]
+					[0 0 0 0 0 0 0 0 0 0]]
+	% Map = {MapGenerator [1 4 2]}
 
 %%%% Players description %%%%
 
-   NbPlayer = 2
-   Players = [player1 player1]
-   Colors = [blue green]
+	NbPlayer = 2
+	Players = [player1 player1]
+	Colors = [blue green]
 
 %%%% Thinking parameters (only in simultaneous) %%%%
 
-   ThinkMin = 500
-   ThinkMax = 3000
+	ThinkMin = 500
+	ThinkMax = 3000
 
 %%%% Surface time/turns %%%%
 
-   TurnSurface = 3
+	TurnSurface = 3
 
 %%%% Life %%%%
 
-   MaxDamage = 4
+	MaxDamage = 4
 
 %%%% Number of load for each item %%%%
 
-   Missile = 3
-   Mine = 3
-   Sonar = 3
-   Drone = 3
+	Missile = 3
+	Mine = 3
+	Sonar = 3
+	Drone = 3
 
 %%%% Distances of placement %%%%
 
-   MinDistanceMine = 1
-   MaxDistanceMine = 2
-   MinDistanceMissile = 1
-   MaxDistanceMissile = 4
+	MinDistanceMine = 1
+	MaxDistanceMine = 2
+	MinDistanceMissile = 1
+	MaxDistanceMissile = 4
 
 %%%% Waiting time for the GUI between each effect %%%%
 
-   GUIDelay = 500 % ms
+	GUIDelay = 500 % ms
 
+
+% ----------------------------------------------------------------
+% Generate a map
+% ----------------------------------------------------------------
+	% Begins by generating the map in the form of one liste (of size NRow * NColumn) and then resizes it to 2 dimensions
+	% First, the island have values (1, 2, ...) to keep track of if they are the same or not
+	% Positions are stored as pt(x:<x> y:<y>) (x from 1 to NRow and y from 1 to NColumn)
+
+	fun{MapGenerator IslandSizes}
+		% Generate a line of zeros of size NRow*NColumn
+		fun	{GenerateZeroFlatMap}
+			fun {GenerateZeroLine N}
+				if N =< 0 then nil
+				else 0|{GenerateZeroLine N-1}
+				end
+			end
+		in
+			{GenerateZeroLine NRow*NColumn}
+		end
+
+		% Resize the FlatMap to the good dimensions
+		fun {Resize FlatMap}
+			fun {ResizeRecursive Row FlatMap}
+				if Row == 0 then nil
+				else {List.take FlatMap NColumn} | {ResizeRecursive Row-1 {List.drop FlatMap NColumn}}
+				end
+			end
+		in
+			{ResizeRecursive NRow FlatMap}
+		end
+
+		% Formats the FlatMap to usable Formats
+		fun {Format FlatMap}
+			fun {ZeroOrOne Value}
+				if Value == 0 then 0
+				else 1
+				end
+			end
+		in
+			{Resize {List.map FlatMap ZeroOrOne}}
+		end
+
+		% Returns the index of Pos in FlatMap
+		fun {GetIndex Pos}
+			(Pos.x-1) * NColumn + Pos.y
+		end
+
+		% Returns the value of the island at Pos
+		fun {GetIslandValue Pos FlatMap}
+			{List.nth FlatMap {GetIndex Pos}}
+		end
+
+		% Cardinal directions
+		fun {North Pos} pt(x:Pos.x-1 y:Pos.y  ) end
+		fun {South Pos} pt(x:Pos.x+1 y:Pos.y  ) end
+		fun {East  Pos} pt(x:Pos.x   y:Pos.y+1) end
+		fun {West  Pos} pt(x:Pos.x   y:Pos.y-1) end
+
+		% Checks if position is out of bounds
+		fun {ValidPosition Pos}
+			(Pos.x > 0 andthen Pos.y > 0 andthen Pos.x =< NRow andthen Pos.y =< NColumn)
+		end
+
+		% Returns only the valid positions in the list
+		fun {ValidPositionList Positions}
+			case Positions
+			of nil then nil
+			[] H|T then
+				if {ValidPosition H} then
+					H|{ValidPositionList T}
+				else
+					{ValidPositionList T}
+				end
+			end
+		end
+
+		% Get valid positions around a specific Pos
+		fun {Around Pos}
+			{ValidPositionList 
+					[ {North Pos} {East  {North Pos}} 
+						{East  Pos} {South {East  Pos}} 
+						{South Pos} {West  {South Pos}} 
+						{West  Pos} {North {West  Pos}}] }
+		end
+
+		% Get positions directly adjacent (in the cardinal directions)
+		fun {StrictlyAround Pos}
+			{ValidPositionList [{North Pos} {East Pos} {South Pos} {West Pos} ]}
+		end
+		% Applied to a list :
+		fun {StrictlyAroundList PosList}
+			{List.flatten {List.map PosList StrictlyAround}}
+		end
+
+		% Checks if a position can be attached to an island without merging
+		fun {IsValid Pos IslandValue FlatMap}
+			fun {IsValidRecursive PosList IslandValue FlatMap}
+				case PosList
+				of nil then true
+				[] H|T then 
+					if {GetIslandValue H FlatMap} == IslandValue orelse {GetIslandValue H FlatMap} == 0 then {IsValidRecursive T IslandValue FlatMap}
+					else false
+					end
+				end
+			end
+		in
+			{IsValidRecursive {Around Pos} IslandValue FlatMap}
+		end
+
+		% Returns only the valid positions in the list
+		fun {IsValidList PosList IslandValue FlatMap}
+			case PosList
+			of nil then nil
+			[] H|T then 
+				if {IsValid H IslandValue FlatMap} then H|{IsValidList T IslandValue FlatMap}
+				else {IsValidList T IslandValue FlatMap}
+				end
+			end
+		end
+
+		% Change the value at pt(x:X y:Y) to the island value
+		fun {MakeIsland Pos IslandValue FlatMap}
+			{List.append {List.take FlatMap ({GetIndex Pos}-1)} IslandValue|{List.drop List {GetIndex Pos}}}
+		end
+
+		% Gives all the positions where an island can expand
+		fun {ExpansionSlots IslandList IslandValue FlatMap}
+			{IsValidList {StrictlyAroundList IslandList} IslandValue FlatMap}
+		end
+
+		% Generate an island of a certain size around a point if the island is constraint by other near islands and can't expand more, smaller-than-size islands can happen
+		fun {GenerateIsland Pos Size IslandValue FlatMap}
+			% Returns an island expanded by Size tiles
+			fun {ExpandIsland PosList Size IslandValue FlatMap}
+				Slots Chosen NewFlatMap
+			in
+				if size == 0 then FlatMap
+				else 
+					% Get the possibilities
+					Slots = {ExpansionSlots PosList IslandValue FlatMap}
+					if Slots == nil then FlatMap
+					else
+						% Choose one random expansion slot
+						Chosen = {List.nth Slots (({OS.rand} mod {List.length Slots}) + 1)}
+						% Change the FlatMap
+						NewFlatMap = {MakeIsland Chosen IslandValue FlatMap}
+						% Recursive call
+						{ExpandIsland Chosen|PosList Size-1 IslandValue NewFlatMap}
+					end
+				end
+			end
+		in
+			{ExpandIsland Pos|nil Size IslandValue FlatMap}
+		end
+
+		% Generate the list of islands and return the FlatMap
+		fun {GenerateIslandList IslandSizes FlatMap}
+			% Recursive
+			fun {GenerateIslandListRecursive IslandSizes IslandValue FlatMap}
+				case IslandSizes
+				of nil then FlatMap
+				[] H|T then Pos in
+					% Get a random position & check if it is a valid starting point for an island
+					Pos = pt(x:(({OS.rand} mod NRow) + 1) y:(({OS.rand} mod NColumn) + 1))
+					if {IsValid Pos IslandValue FlatMap} then NewFlatMap in
+						% Create a new island & recursive call
+						NewFlatMap = {GenerateIsland Pos H IslandValue FlatMap}
+						{GenerateIslandListRecursive T IslandValue+1 NewFlatMap}
+					else
+						% Just try again
+						{GenerateIslandListRecursive IslandSizes IslandValue FlatMap}
+					end
+				end
+			end
+		in
+			{GenerateIslandListRecursive IslandSizes 1 FlatMap}
+		end
+
+		% Local variables
+		EmptyFlatMap
+		FlatMap
+	in
+		EmptyFlatMap = {GenerateZeroFlatMap}
+		FlatMap = {GenerateIslandList IslandSizes EmptyFlatMap}
+		{Format FlatMap}
+	end
 end
