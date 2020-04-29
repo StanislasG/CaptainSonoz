@@ -516,7 +516,7 @@ in
 			elseif(X<Xe andthen Y==Ye)	then Choices = [south]
 			elseif(X>Xe andthen Y==Ye)	then Choices = [north]
 			end
-			{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices allen:en(ClosestEnnemiList))}
+			%{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices allen:en(ClosestEnnemiList))}
 		end
 
 		%if(TryOnce==true) then
@@ -584,6 +584,8 @@ in
 	%return a list of the ennemies number possibilities
 	fun{ListPoss MyInfo Players}
 		if(Players == nil) then nil
+		elseif(Players.1 == null) then  {ListPoss MyInfo Players.2}
+		elseif(MyInfo.id == null) then  {ListPoss MyInfo Players.2}
 		elseif(Players.1.id == MyInfo.id.id) then {ListPoss MyInfo Players.2}
 		else {List.length Players.1.possibilities}|{ListPoss MyInfo Players.2}
 		end
@@ -613,6 +615,7 @@ in
 		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
 
 		%list of record where to shoot order with as first fewest lives
+		%{System.show before(MyInfo)}
 		TargetOrder = {FindTarget MyInfo PlayersInfo}
 		if(Fire.sonar==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
 			NewFire in
@@ -709,7 +712,7 @@ in
 	in	
 		pt(x:X y:Y) = MyInfo.path.1
 		MaxManhattan = Input.nRow + Input.nColumn - (X + Y - 2)
-		{System.show {FindTargetNotOrd PlayersInfo MyInfo}}
+		%{System.show {FindTargetNotOrd PlayersInfo MyInfo}}
 		{Sort {FindTargetNotOrd PlayersInfo MyInfo} MaxManhattan}
 	end
 	
@@ -867,7 +870,7 @@ in
 		%{System.show inMini(maxRows:MaxRow MaxCol)}
 		RowTrue	= {List.nth Rows X} + {List.nth Cols MaxCol}
 		ColTrue	= {List.nth Cols Y} + {List.nth Rows MaxRow} 
-		{System.show possAfter(row:RowTrue col:ColTrue )}
+		%{System.show possAfter(row:RowTrue col:ColTrue )}
 		if(RowTrue > ColTrue) then
 			pt(x:X y:MaxCol)
 		else 
@@ -1087,7 +1090,7 @@ in
 		% end
 
 		%{System.show sayPassingSonar}
-		{System.show mini(id:ID poss:{List.length Player.possibilities} result:{MinimizeInfoSonar MyInfo.path.1 Player.possibilities})}
+		%{System.show mini(id:ID poss:{List.length Player.possibilities} result:{MinimizeInfoSonar MyInfo.path.1 Player.possibilities})}
 		
 
 		% Edit charge
@@ -1117,10 +1120,12 @@ in
 	
 	% Simply removing player from PlayersInfo if he is dead
 	fun{SayDeath ID PlayersInfo}
+		%{System.show iAmDead(id:ID.id)}
 		case PlayersInfo
 		of nil then nil
 		[] player(id:PlayerID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == PlayerID) then Next
+			if(ID.id == PlayerID) then
+				{PlayerChangeVal {PlayerChangeVal PlayersInfo.1 id null} lives 0}|Next
 			else PlayersInfo.1|{SayDeath ID Next}
 			end
 		end
@@ -1141,6 +1146,10 @@ in
 % TreatStream
 % ------------------------------------------
 	proc{TreatStream Stream MyInfo PlayersInfo}
+		%if(MyInfo.id==null)then
+		%	case Stream of Mes|_ then {System.show deadPlayerStream(Mes)}
+		%	else skip end
+		%else skip end
 		case Stream
 		of nil then skip
 
@@ -1173,7 +1182,7 @@ in
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]isDead(?Answer)|T then
-			Answer = (MyInfo.lives == 0)
+			Answer = (MyInfo.id == null)
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayMove(ID Direction)|T then 

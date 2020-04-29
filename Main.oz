@@ -85,9 +85,8 @@ in
 				end
 			end
 		end
-	in
-		{CountPlayersAliveRecursive Players 0}
-	end
+		
+	in {CountPlayersAliveRecursive Players 0} end
 
 	% Check if player is dead
 	fun{IsDead Player}
@@ -133,21 +132,25 @@ in
 	fun{Move CurrentPlayer}
 		ID Pos Direction
 	in
-		{Send {List.nth Players CurrentPlayer} move(?ID ?Pos ?Direction)}
-		{Wait ID} {Wait Pos} {Wait Direction}
-		% Check if player is dead
-		if ID==null then false
+		if({IsDead {List.nth Players CurrentPlayer}}) then 
+			false
 		else
-			% Broadcast and return false to indicate end of turn
-			if Direction == surface then
-				{Send GuiPort surface(ID)}
-				{Broadcast saySurface(ID)}
-				false
-			% Broadcast direction and return true to indicate continuing to play
+			{Send {List.nth Players CurrentPlayer} move(?ID ?Pos ?Direction)}
+			{Wait ID} {Wait Pos} {Wait Direction}
+			% Check if player is dead
+			if ID==null then false
 			else
-				{Send GuiPort movePlayer(ID Pos)}
-				{Broadcast sayMove(ID Direction)}
-				true
+				% Broadcast and return false to indicate end of turn
+				if Direction == surface then
+					{Send GuiPort surface(ID)}
+					{Broadcast saySurface(ID)}
+					false
+				% Broadcast direction and return true to indicate continuing to play
+				else
+					{Send GuiPort movePlayer(ID Pos)}
+					{Broadcast sayMove(ID Direction)}
+					true
+				end
 			end
 		end
 	end
@@ -157,16 +160,20 @@ in
 		KindItem
 		ID
 	in
-		% Get information about item charged
-		{Send {List.nth Players CurrentPlayer} chargeItem(?ID ?KindItem)}
-		{Wait ID} {Wait KindItem}
-		% Check if player is dead
-		if ID == null then skip
+		if({IsDead {List.nth Players CurrentPlayer}}) then 
+			skip
 		else
-			% Check if player has fully charged an item
-			if KindItem == null then skip
-			% Broadcast information if player has fully charged an item
-			else {Broadcast sayCharge(ID KindItem)}
+			% Get information about item charged
+			{Send {List.nth Players CurrentPlayer} chargeItem(?ID ?KindItem)}
+			{Wait ID} {Wait KindItem}
+			% Check if player is dead
+			if ID == null then skip
+			else
+				% Check if player has fully charged an item
+				if KindItem == null then skip
+				% Broadcast information if player has fully charged an item
+				else {Broadcast sayCharge(ID KindItem)}
+				end
 			end
 		end
 	end
@@ -176,25 +183,29 @@ in
 		ID
 		Item
 	in
-		{Send {List.nth Players CurrentPlayer} fireItem(?ID ?Item)}
-		{Wait ID} {Wait Item}
-		% Check if player is dead
-		if ID == null then skip
+		if({IsDead {List.nth Players CurrentPlayer}}) then 
+			skip
 		else
-			% Check item fired
-			case Item
-			of null then skip
-			% Mine : notify all players and update GUI
-			[] mine(Position) then
-				{Broadcast sayMinePlaced(ID)}
-				{Send GuiPort putMine(ID Position)}
-			% Missile : notify all players and send back answers if damaged players. Used proc 'DamagingItem' to handle recursivity
-			[] missile(Position) then
-				{DamagingItem ID Position missile}
-			[] sonar then
-				{Sonar ID CurrentPlayer}
-			[] drone(RowOrColumn Number) then
-				{Drone ID CurrentPlayer drone(RowOrColumn Number)}
+			{Send {List.nth Players CurrentPlayer} fireItem(?ID ?Item)}
+			{Wait ID} {Wait Item}
+			% Check if player is dead
+			if ID == null then skip
+			else
+				% Check item fired
+				case Item
+				of null then skip
+				% Mine : notify all players and update GUI
+				[] mine(Position) then
+					{Broadcast sayMinePlaced(ID)}
+					{Send GuiPort putMine(ID Position)}
+				% Missile : notify all players and send back answers if damaged players. Used proc 'DamagingItem' to handle recursivity
+				[] missile(Position) then
+					{DamagingItem ID Position missile}
+				[] sonar then
+					{Sonar ID CurrentPlayer}
+				[] drone(RowOrColumn Number) then
+					{Drone ID CurrentPlayer drone(RowOrColumn Number)}
+				end
 			end
 		end
 	end
@@ -204,14 +215,18 @@ in
 		ID
 		MinePosition
 	in
-		% Ask if exploding mine
-		{Send {List.nth Players CurrentPlayer} fireMine(?ID ?MinePosition)}
-		{Wait ID} {Wait MinePosition}
-		% Handle answer
-		if MinePosition == null orelse ID == null then skip
-		else 
-			{Send GuiPort removeMine(ID MinePosition)}
-			{DamagingItem ID MinePosition mine}
+		if({IsDead {List.nth Players CurrentPlayer}}) then 
+			skip
+		else
+			% Ask if exploding mine
+			{Send {List.nth Players CurrentPlayer} fireMine(?ID ?MinePosition)}
+			{Wait ID} {Wait MinePosition}
+			% Handle answer
+			if MinePosition == null orelse ID == null then skip
+			else 
+				{Send GuiPort removeMine(ID MinePosition)}
+				{DamagingItem ID MinePosition mine}
+			end
 		end
 	end
 
@@ -225,30 +240,34 @@ in
 			case PlayerList
 			of nil then skip
 			[] Player|T then
-				% Handle message to current player
-				local Message in
-					case KindItem
-					of missile then {Send Player sayMissileExplode(ID Position ?Message)}
-					[] mine then {Send Player sayMineExplode(ID Position ?Message)}
-					end
-					{Wait Message}
-					% Broadcast information and update GUI
-					case Message
-					of null then skip
-					[] sayDamageTaken(PlayerID DamageTaken LifeLeft) then
-						if PlayerID \= null then
-							{Broadcast Message}
-							{Send GuiPort lifeUpdate(PlayerID LifeLeft)}
+				if({IsDead Player}) then 
+					{DamagingItemRecursive ID Position KindItem T}
+				else
+					% Handle message to current player
+					local Message in
+						case KindItem
+						of missile then {Send Player sayMissileExplode(ID Position ?Message)}
+						[] mine then {Send Player sayMineExplode(ID Position ?Message)}
 						end
-					[] sayDeath(PlayerID) then
-						if PlayerID \= null then
-							{Broadcast Message}
-							{Send GuiPort lifeUpdate(PlayerID 0)}
-							{Send GuiPort removePlayer(PlayerID)}
+						{Wait Message}
+						% Broadcast information and update GUI
+						case Message
+						of null then skip
+						[] sayDamageTaken(PlayerID DamageTaken LifeLeft) then
+							if PlayerID \= null then
+								{Broadcast Message}
+								{Send GuiPort lifeUpdate(PlayerID LifeLeft)}
+							end
+						[] sayDeath(PlayerID) then
+							if PlayerID \= null then
+								{Broadcast Message}
+								{Send GuiPort lifeUpdate(PlayerID 0)}
+								{Send GuiPort removePlayer(PlayerID)}
+							end
 						end
 					end
+					{DamagingItemRecursive ID Position KindItem T}
 				end
-				{DamagingItemRecursive ID Position KindItem T}
 			end
 		end
 	in
@@ -262,15 +281,19 @@ in
 			case PlayerList
 			of nil then skip
 			[] Player|T then
-				% Handle message to current player
-				local EnnemyID Answer in
-					{Send Player sayPassingSonar(?EnnemyID ?Answer)}
-					{Wait EnnemyID} {Wait Answer}
-					% Send back information to player that has sent the sonar
-					{Send {List.nth Players CurrentPlayer} sayAnswerSonar(EnnemyID Answer)}
+				if({IsDead Player}) then 
+					{SonarRecursive ID CurrentPlayer T}
+				else
+					% Handle message to current player
+					local EnnemyID Answer in
+						{Send Player sayPassingSonar(?EnnemyID ?Answer)}
+						{Wait EnnemyID} {Wait Answer}
+						% Send back information to player that has sent the sonar
+						{Send {List.nth Players CurrentPlayer} sayAnswerSonar(EnnemyID Answer)}
+					end
+					% Recursive call
+					{SonarRecursive ID CurrentPlayer T}
 				end
-				% Recursive call
-				{SonarRecursive ID CurrentPlayer T}
 			end
 		end
 	in
@@ -283,15 +306,18 @@ in
 			case PlayerList
 			of nil then skip
 			[] Player|T then
-				% Handle message to current player
-				local EnnemyID Answer in
-					{Send Player sayPassingDrone(Drone ?EnnemyID ?Answer)}
-					{Wait EnnemyID} {Wait Answer}
-					% Send back information to player that has sent the drone
-					{Send {List.nth Players CurrentPlayer} sayAnswerDrone(Drone EnnemyID Answer)}
+				if({IsDead Player}) then 
+					{DroneRecursive ID CurrentPlayer Drone T}
+				else				% Handle message to current player
+					local EnnemyID Answer in
+						{Send Player sayPassingDrone(Drone ?EnnemyID ?Answer)}
+						{Wait EnnemyID} {Wait Answer}
+						% Send back information to player that has sent the drone
+						{Send {List.nth Players CurrentPlayer} sayAnswerDrone(Drone EnnemyID Answer)}
+					end
+					% Recursive call
+					{DroneRecursive ID CurrentPlayer Drone T}
 				end
-				% Recursive call
-				{DroneRecursive ID CurrentPlayer Drone T}
 			end
 		end
 	in
@@ -319,7 +345,9 @@ in
 % -------------------------------------------------
 	proc{TurnByTurn CurrentPlayer TimeAtSurface}
 		% Check if players are still alive
-		if {CountPlayersAlive} =< 1 then
+		if{IsDead {List.nth Players CurrentPlayer}} then
+			{TurnByTurn {NextPlayer CurrentPlayer} TimeAtSurface}
+		elseif {CountPlayersAlive} =< 1 then
 			{System.show 'End of the game'}
 		else
 			% Set delay
@@ -362,8 +390,12 @@ in
 	proc{AllSimultaneous}
 		proc{OneSimultaneous CurrentPlayer Surface}
 			% Check if player is dead
+			%{System.show {CountPlayersAlive}}
 			if {IsDead {List.nth Players CurrentPlayer}} then 
-				{System.show playerIsDead(CurrentPlayer)}
+				%{System.show playerIsDead(CurrentPlayer)}
+				skip
+			elseif {CountPlayersAlive} =< 1 then
+				{System.show 'End of the game'}
 			else
 				% Dive
 				if Surface then 
