@@ -452,7 +452,7 @@ in
 	% Ask every player to set up (choose its initial point, they all are at the surface at this time)
 	{InitPlayers Players}
 
-	% When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specied by the input)
+	% When every player has set up, launch the game (either in turn by turn or in simultaneous mode, as specified by the input)
 	if (Input.isTurnByTurn) then
 		{TurnByTurn 1 {GenerateZeroList Input.nbPlayer}}
 		{System.show 'End of the game'}
