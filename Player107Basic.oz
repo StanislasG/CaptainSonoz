@@ -476,38 +476,41 @@ in
     NewMines
     % Returns true if a player is in range of a mine
     fun{PlayerInRangeOfMine Position PlayersInfo}
-      case PlayersInfo
-      of nil then false
-      [] H|T then
-        case H.possibilities
-        of P|nil then 
-          if {ManhattanDistance P Position} =< 1 then true
-          else {PlayerInRangeOfMine Position T}
-          end
-        else {PlayerInRangeOfMine Position T}
-        end
-      end
-    end
+		case PlayersInfo
+		of nil then false
+		[] H|T then
+			if(H.id ==null) then {PlayerInRangeOfMine Position T}
+			else
+				case H.possibilities
+				of P|nil then 
+					if {ManhattanDistance P Position} =< 1 then true
+					else {PlayerInRangeOfMine Position T}
+					end
+				else {PlayerInRangeOfMine Position T}
+				end
+			end
+		end
+	end
 
     % Returns a list without the mine that exploded
     % Explodes the first mine that can damage someone (except if damages me)
     fun{RecursiveMine Mine Mines MyPosition PlayersInfo}
-      case Mines
-      of nil then 
-        Mine = null
-        nil
-      [] H|T then
-        if ({ManhattanDistance MyPosition H} > 1) andthen ({PlayerInRangeOfMine H PlayersInfo}) then
-          Mine = H
-          T
-        else 
-          H | {RecursiveMine Mine T MyPosition PlayersInfo}
-        end
-      end
-    end
-  in
-    NewMines = {RecursiveMine Mine MyInfo.mine MyInfo.path.1 PlayersInfo}
-    {MyInfoChangeVal MyInfo mine NewMines}
+		case Mines
+		of nil then 
+			Mine = null
+			nil
+		[] H|T then
+			if ({ManhattanDistance MyPosition H} > 1) andthen ({PlayerInRangeOfMine H PlayersInfo}) then
+			Mine = H
+			T
+			else 
+			H | {RecursiveMine Mine T MyPosition PlayersInfo}
+			end
+		end
+		end
+	in
+		NewMines = {RecursiveMine Mine MyInfo.mine MyInfo.path.1 PlayersInfo}
+		{MyInfoChangeVal MyInfo mine NewMines}
 	end
 
 % ------------------------------------------  
@@ -598,6 +601,9 @@ in
 				Message = sayDeath(MyInfo.id)
 				% Change MyInfo.id to null & lives to lives-DamageTaken
 				NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
+			elseif MyInfo.lives ==0 then
+				Message = sayDeath(MyInfo.id)
+				NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives 0} id null}
 			else 
 				Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
 				NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
@@ -637,6 +643,9 @@ in
 				Message = sayDeath(MyInfo.id)
 				% Change MyInfo.id to null & lives to lives-DamageTaken
 				NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
+			elseif MyInfo.lives ==0 then
+				Message = sayDeath(MyInfo.id)
+				NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives 0} id null}
 			else 
 				Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
 				NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
@@ -691,7 +700,7 @@ in
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingSonar Args Player} ID Answer MyInfo NewCharge in
-		{System.show sayPassingSonar(Args Player)}
+		%{System.show sayPassingSonar(Args Player)}
 		% Get info
 		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
 		% Return info
@@ -730,10 +739,12 @@ in
 	
 	% Simply removing player from PlayersInfo if he is dead
 	fun{SayDeath ID PlayersInfo}
+		%{System.show iAmDead(id:ID.id)}
 		case PlayersInfo
 		of nil then nil
 		[] player(id:PlayerID lives:_ possibilities:_ surface:_ charge:_)|Next then
-			if (ID == PlayerID) then Next
+			if(ID.id == PlayerID) then
+				{PlayerChangeVal {PlayerChangeVal PlayersInfo.1 id null} lives 0}|Next
 			else PlayersInfo.1|{SayDeath ID Next}
 			end
 		end
@@ -782,7 +793,7 @@ in
 			{TreatStream T NewMyInfo PlayersInfo}
 
 		[]isDead(?Answer)|T then
-			Answer = (MyInfo.lives == 0)
+			Answer = (MyInfo.id == null)
 			{TreatStream T MyInfo PlayersInfo}
 		
 		[]sayMove(ID Direction)|T then 
@@ -827,7 +838,7 @@ in
 			% Dead player removed from player list
 			{TreatStream T MyInfo {SayDeath ID PlayersInfo}}
 		
-		[]sayDamageTaken(ID Damage LifeLeft)|T then 
+		[]sayDamageTaken(ID Damage LifeLeft)|T then Temp in
 			%todo modify PlayersInfo with PlayerModification
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayDamageTaken arguments(damage:Damage lifeLeft:LifeLeft)}}
 		
