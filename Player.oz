@@ -41,6 +41,8 @@ define
 		FindPath
 		ChooseDirection
 	ChargeItem 
+		ListPoss
+		FewestPossPlayer
 	FireItem 
 		FindTargetNotOrd
 		FindTarget
@@ -48,6 +50,14 @@ define
 		FireItemSearch
 		FireItemCheck
 	FireMine
+
+	% Detection
+	InfoLine
+	InfoRow InfoCol
+	GetPos
+	MaxLineExcl MaxLineIncl
+	MinimizeInfoSonar
+	MaximizeInfoDrone
 
 	% Say functions
 	PlayerModification
@@ -496,12 +506,17 @@ in
 			pt(x:Xe y:Ye)	= ClosestEnnemiList.1.possibilities.1
 			%{System.show chooseDirection2}
 			%{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) allen(ClosestEnnemiList))}
-			if(X<Xe andthen Y<Ye) 		then Choices = [east south]
-			elseif(X>=Xe andthen Y<Ye)	then Choices = [north east]
-			elseif(X<Xe andthen Y>=Ye)	then Choices = [south west]
-			elseif(X>=Xe andthen Y>=Ye)	then Choices = [north west] 
+			if(X==Xe andthen Y==Ye)		then Choices = [north east south west]
+			elseif(X<Xe andthen Y<Ye) 	then Choices = [east south]
+			elseif(X>Xe andthen Y<Ye)	then Choices = [north east]
+			elseif(X<Xe andthen Y>Ye)	then Choices = [south west]
+			elseif(X>Xe andthen Y>Ye)	then Choices = [north west]
+			elseif(X==Xe andthen Y<Ye)	then Choices = [west]
+			elseif(X==Xe andthen Y>Ye)	then Choices = [east]
+			elseif(X<Xe andthen Y==Ye)	then Choices = [south]
+			elseif(X>Xe andthen Y==Ye)	then Choices = [north]
 			end
-			%{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices allen(ClosestEnnemiList))}
+			{System.show chooseDirection(mypos:pt(x:X y:Y) enpos:pt(x:Xe y:Ye) choices:Choices allen:en(ClosestEnnemiList))}
 		end
 
 		%if(TryOnce==true) then
@@ -519,7 +534,7 @@ in
 	%strategie charge missile then mine then locate with drone/sonar 
 	% when ennemi found place mine and shoot with missile 
 	fun{ChargeItem KindItem MyInfo PlayersInfo}
-		Produced NewMyInfo FewestPoss MaxNbPoss MinNbPoss
+		Produced NewMyInfo FewestPoss MaxNbPossSonar MaxNbPossDrone MinNbPossDrone
 		%return true if it has charge/produce the item, false if not
 		fun{ChargeItemSpec Wanted ?Produced ?NewMyInfo}
 			if(MyInfo.fire.Wanted == 0) then % not ready to fire
@@ -538,23 +553,26 @@ in
 				false 
 			end
 		end
-		fun{ListPoss Players}
-			if(Players == nil) then nil
-			elseif(Players.1.id == MyInfo.id.id) then {ListPoss Players.2}
-			else {List.length Players.1.possibilities}|{ListPoss Players.2}
-			end
-		end
 	in
-		MaxNbPoss = 25
-		MinNbPoss = 2
-		FewestPoss = {Sort {ListPoss PlayersInfo} Value.'<'}.1
+		%only one sonar used in the beginning
+		MaxNbPossSonar = Input.nRow + Input.nColumn
+		%aftertward detection with drones
+		if(Input.nRow > 2*Input.drone orelse Input.nColumn > 2*Input.drone)
+			then MaxNbPossDrone = 2*Input.drone
+		else MaxNbPossDrone = {Value.Min Input.nRow Input.nColumn} end
+		MinNbPossDrone = 2
 
+		FewestPoss = {Sort {ListPoss MyInfo PlayersInfo} Value.'<'}.1
+		
 		%try to charge/produce an item
-		if(FewestPoss >= MaxNbPoss orelse (MyInfo.charge.sonar>=1 andthen FewestPoss<MinNbPoss))	then Test in Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
+		if(FewestPoss >= MaxNbPossSonar) then Test in 
+			Test = {ChargeItemSpec sonar ?Produced ?NewMyInfo}
+		elseif(FewestPoss>=MaxNbPossDrone orelse (MyInfo.charge.drone>=1 andthen FewestPoss<MinNbPossDrone)) then
+			Test in Test = {ChargeItemSpec drone ?Produced ?NewMyInfo}
 		elseif({ChargeItemSpec missile ?Produced ?NewMyInfo}) 	then skip
-		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})	then skip
-		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})	then skip
-		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})	then skip
+		elseif({ChargeItemSpec mine ?Produced ?NewMyInfo})		then skip
+		elseif({ChargeItemSpec sonar ?Produced ?NewMyInfo})		then skip
+		elseif({ChargeItemSpec drone ?Produced ?NewMyInfo})		then skip
 		end
 		%bind
 		KindItem = Produced
@@ -563,10 +581,35 @@ in
 		NewMyInfo
 	end
 
+	%return a list of the ennemies number possibilities
+	fun{ListPoss MyInfo Players}
+		if(Players == nil) then nil
+		elseif(Players.1.id == MyInfo.id.id) then {ListPoss MyInfo Players.2}
+		else {List.length Players.1.possibilities}|{ListPoss MyInfo Players.2}
+		end
+	end
+
+	% return the player with the fewest poss(ecxept himself)
+	fun{FewestPossPlayer MyInfo Players}
+		fun{FewestPossPlayerIn MyInfo Players Candidate}
+			if(Players == nil) then Candidate
+			elseif(MyInfo.id.id == Players.1.id) then {FewestPossPlayerIn MyInfo Players.2 Candidate}
+			elseif({List.length Players.1.possibilities} < {List.length Candidate.possibilities}) then {FewestPossPlayerIn MyInfo Players.2 Players.1}
+			else{FewestPossPlayerIn MyInfo Players.2 Candidate}
+			end
+		end
+	in 	
+		if(MyInfo.id.id == Players.1.id) then 
+			{FewestPossPlayerIn MyInfo Players Players.2.1}
+		else
+			{FewestPossPlayerIn MyInfo Players Players.1}
+		end
+	end
+
 	%first try shoot a missile if is right
 	%second place a mine and shoot if ennemi damage int this round or if ennemi if has been detected
 	%third to detect ennemi
-	fun{FireItem KindFire MyInfo PlayersInfo} Fire TargetOrder NewMyInfo in
+	fun{FireItem KindFire MyInfo PlayersInfo} Fire TargetOrder FewestPoss NewMyInfo in
 		Fire = MyInfo.fire %fire(mine:__ missile:__ sonar:__ drone:__)
 
 		%list of record where to shoot order with as first fewest lives
@@ -578,17 +621,10 @@ in
 			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
 		
 		elseif(Fire.drone==1 andthen {List.length TargetOrder}\={List.length PlayersInfo}) then 
-			NewFire RowCol RowColName RowColNb in
-			RowCol = {OS.rand} mod 2
-			if(RowCol == 0) then 
-				RowColName=row
-				RowColNb = ({OS.rand} mod Input.nRow) +1
-			else 
-				RowColName=column
-				RowColNb = ({OS.rand} mod Input.nColumn) +1
-			end
-
-			KindFire = drone(RowColName RowColNb)
+			FewestPoss NewFire
+		in
+			FewestPoss = {FewestPossPlayer MyInfo PlayersInfo}
+			KindFire = {MaximizeInfoDrone FewestPoss.possibilities}
 			NewFire		= {ItemRecordChangeVal MyInfo.fire drone 0}
 			NewMyInfo	= {MyInfoChangeVal MyInfo fire NewFire}
 		
@@ -715,7 +751,8 @@ in
 		OnePoint = {GenerateDiamond MyPos Max+1}
 		if({List.member KillPos TwoPoint}) then %two point hit
 			KillPos 
-		elseif({List.member KillPos OnePoint}) then %one point hit
+		%only two pointshit with the missile
+		elseif(Type\=missile andthen {List.member KillPos OnePoint}) then %one point hit
 			%two possible shots
 			TargetPts in
 			%we can shoot on islands, it will never shoot out the bounderies of the game
@@ -771,6 +808,92 @@ in
 		end
 		NewMyInfo
 	end
+
+% ------------------------------------------  
+% Detection
+% ------------------------------------------
+	fun{InfoLine Type Number Poss} Line Tmp in
+		case Type 
+			of row 		then Line = {GenerateRow Number}
+			[] column 	then Line = {GenerateColumn Number}
+		end
+		Tmp = {ListPtAnd Poss Line}
+		%{System.show infoLine(Type Number Poss {List.length Tmp})}
+		{List.length Tmp}
+	end
+
+	fun{InfoRow Poss}
+		fun{InfoRowIn Number}
+			if(Number>Input.nRow) then nil
+			else {InfoLine row Number Poss}|{InfoRowIn Number+1} end
+		end
+	in {InfoRowIn 1} end
+
+	fun{InfoCol Poss}
+		fun{InfoColIn Number}
+			if(Number>Input.nColumn) then nil
+			else {InfoLine column Number Poss}|{InfoColIn Number+1} end
+		end
+	in {InfoColIn 1} end
+
+	fun{GetPos List Value}
+		fun{GetPosIn List Value Nb}
+			if(List.1 == Value) then Nb
+			else{GetPosIn List.2 Value Nb+1} end
+		end
+	in {GetPosIn List Value 1} end
+
+	% return the Line number that is the biggest (without LineNb as candidate)
+	fun{MaxLineExcl ListLine LineNb} ListNoLineNb Biggest LineCandidate in
+		ListNoLineNb = {List.subtract ListLine {List.nth ListLine LineNb}}
+		Biggest = {Sort ListNoLineNb Value.'>'}.1
+		LineCandidate = {GetPos ListNoLineNb Biggest}
+		if(LineCandidate < LineNb) then LineCandidate
+		else LineCandidate+1 end
+	end
+
+		% return the Line number that is the biggest
+	fun{MaxLineIncl ListLine} Biggest in
+		Biggest = {Sort ListLine Value.'>'}.1
+	end
+
+	fun{MinimizeInfoSonar Pt Poss} X Y Rows Cols MaxRow MaxCol RowTrue ColTrue in
+		pt(x:X y:Y) = Pt
+		Rows 	= {InfoRow Poss}
+		Cols 	= {InfoCol Poss}
+		%{System.show inMini(rows:Rows Cols)}
+		MaxRow	= {MaxLineExcl Rows X}
+		MaxCol	= {MaxLineExcl Cols Y}
+		%{System.show inMini(maxRows:MaxRow MaxCol)}
+		RowTrue	= {List.nth Rows X} + {List.nth Cols MaxCol}
+		ColTrue	= {List.nth Cols Y} + {List.nth Rows MaxRow} 
+		{System.show possAfter(row:RowTrue col:ColTrue )}
+		if(RowTrue > ColTrue) then
+			pt(x:X y:MaxCol)
+		else 
+			pt(x:MaxRow y:Y)
+		end
+	end	
+
+	fun{MaximizeInfoDrone Poss} Rows Cols MaxRow MaxCol  RowTrue ColTrue in
+		% zeros, ones with maybe one value >1
+		Rows 	= {InfoRow Poss}
+		Cols 	= {InfoCol Poss}
+		% line number with the biggest value
+		MaxRow	= {MaxLineIncl Rows}
+		MaxCol	= {MaxLineIncl Cols}
+		% check wheter one or two lines
+		if({List.nth Cols MaxCol} > 1 andthen {List.nth Rows MaxRow} > 1) then
+			%here two lines
+			drone(row {List.nth Rows MaxRow})
+		elseif({List.nth Cols MaxCol} > 1) then 
+			%here one column
+			drone(column {List.nth Cols MaxCol})
+		else 
+			%here one row
+			drone(row {List.nth Rows MaxRow})
+		end
+	end	
 
 % ------------------------------------------  
 % In-game management - Receive Information
@@ -943,65 +1066,6 @@ in
 	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingSonar Args Player} 
-
-		fun{InfoLine Type Number Poss} Line Tmp in
-			case Type 
-				of row 		then Line = {GenerateRow Number}
-				[] column 	then Line = {GenerateColumn Number}
-			end
-			Tmp = {ListPtAnd Poss Line}
-			%{System.show infoLine(Type Number Poss {List.length Tmp})}
-			{List.length Tmp}
-		end
-
-		fun{InfoRow Poss}
-			fun{InfoRowIn Number}
-				if(Number>Input.nRow) then nil
-				else {InfoLine row Number Poss}|{InfoRowIn Number+1} end
-			end
-		in {InfoRowIn 1} end
-
-		fun{InfoCol Poss}
-			fun{InfoColIn Number}
-				if(Number>Input.nColumn) then nil
-				else {InfoLine column Number Poss}|{InfoColIn Number+1} end
-			end
-		in {InfoColIn 1} end
-
-		fun{GetPos List Value}
-			fun{GetPosIn List Value Nb}
-				if(List.1 == Value) then Nb
-				else{GetPosIn List.2 Value Nb+1} end
-			end
-		in {GetPosIn List Value 1} end
-
-		% return the Line number that is the biggest (without LineNb as candidate)
-		fun{MaxLine ListLine LineNb} ListNoLineNb Biggest Check LineCandidate in
-			ListNoLineNb = {List.subtract ListLine {List.nth ListLine LineNb}}
-			Biggest = {Sort ListNoLineNb Value.'>'}.1
-			LineCandidate = {GetPos ListNoLineNb Biggest}
-			if(LineCandidate < LineNb) then LineCandidate
-			else LineCandidate+1 end
-		end
-
-		fun{MinimizeInfo Pt Poss} X Y Rows Cols MaxRow MaxCol RowTrue ColTrue in
-			pt(x:X y:Y) = Pt
-			Rows 	= {InfoRow Poss}
-			Cols 	= {InfoCol Poss}
-			%{System.show inMini(rows:Rows Cols)}
-			MaxRow	= {MaxLine Rows X}
-			MaxCol	= {MaxLine Cols Y}
-			%{System.show inMini(maxRows:MaxRow MaxCol)}
-			RowTrue	= {List.nth Rows X} + {List.nth Cols MaxCol}
-			ColTrue	= {List.nth Cols Y} + {List.nth Rows MaxRow} 
-			{System.show possAfter(row:RowTrue col:ColTrue )}
-			if(RowTrue > ColTrue) then
-				pt(x:X y:MaxCol)
-			else 
-				pt(x:MaxRow y:Y)
-			end
-		end		
-	
 		ID Answer MyInfo NewCharge 
 	in
 		%{System.show sayPassingSonar(Args Player)}
@@ -1009,6 +1073,7 @@ in
 		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
 		% Return info
 		ID = MyInfo.id
+		Answer = {MinimizeInfoSonar MyInfo.path.1 Player.possibilities}
 		%todo minimize info given by given position with the fewest information
 		%todo update player info with the infomaration that we have given 
 		% choose X or Y and send back information (random)
@@ -1019,7 +1084,7 @@ in
 		end
 
 		%{System.show sayPassingSonar}
-		{System.show mini(id:ID poss:{List.length Player.possibilities} result:{MinimizeInfo MyInfo.path.1 Player.possibilities})}
+		{System.show mini(id:ID poss:{List.length Player.possibilities} result:{MinimizeInfoSonar MyInfo.path.1 Player.possibilities})}
 		
 
 		% Edit charge
