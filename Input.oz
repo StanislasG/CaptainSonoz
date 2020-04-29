@@ -260,14 +260,9 @@ in
 	% Map = {MapGenerator [5 2 5 4 7 8 18 13 7 14 3 5 6 7 8 9 9 9 9 9 4 5 5 4 4 3 5 6 7 6 5 4 3]}
 
 	% Small map
-	NRow = 6
+	NRow = 10
 	NColumn = 10
-	Map = [ [0 0 0 0 0 0 0 0 0 0]
-					[0 0 0 0 0 0 0 0 0 0]
-					[0 0 0 1 1 0 0 0 0 0]
-					[0 0 1 1 0 0 1 0 0 0]
-					[0 0 0 0 0 0 0 0 0 0]
-					[0 0 0 0 0 0 0 0 0 0]]
+	Map = {MapGenerator [5 3 2 4 5 3]}
 
 %%%% Players description %%%%
 
@@ -278,7 +273,7 @@ in
 
 	% Small number of players
 	NbPlayer = 4
-	Players = [player2 player2 player2 player2]
+	Players = [player1 player1 player2 player2]
 	Colors = [red blue green yellow]
 
 %%%% Thinking parameters (only in simultaneous) %%%%

@@ -23,7 +23,7 @@ define
 		GenerateColumn GeneratePartColumn
 		GenerateCross ValidPositionsAround
 	MyInfoChangeVal ItemRecordChangeVal 
-	PlayerChangeVal PlayerNbChangeVal
+	PlayerChangeVal
 	PlayersInfoPos
 	PrettyPrintMap
 	
@@ -44,8 +44,8 @@ define
 	SaySurface
 	SayCharge
 	SayMinePlaced
-	SayMissileExplodeMyInfo SayMissileExplodeMissileStatus
-	SayMineExplodeMyInfo
+	SayExplosionMyInfo
+	SayMissileExplodeMissileStatus
 	SayPassingDrone
 	SayAnswerDrone SonarPossibilities
 	SayPassingSonar
@@ -280,16 +280,6 @@ in
 			[] charge			then player(id:ID lives:Lives possibilities:Poss surface:Surface charge:NewVal)
 		end
 	end
-	
-	% not used
-	% Change a specific label in a spefic player
-	fun{PlayerNbChangeVal List Number Label NewVal}
-		if(List==nil)		then {System.show error(thePlayerdoesNotExist)}
-		elseif(Number==1) 	then {PlayerChangeVal List.1 Label NewVal}|List.2
-		else List.1|{PlayerNbChangeVal List.2 Number-1 Label NewVal}
-		end
-	end
-
 
 	% no more used
 	%player(id:___ lives:___ possibilities:___ surface:___ charge:charge(mine:___ missile:___ sonar:___ drone:___))
@@ -371,7 +361,7 @@ in
 	% Start Player (portPlayer from PlayerManager)
 	fun{StartPlayer Color ID}
 		Stream Port MyInfo PlayersInfo
-		fun{CreateAllPlayer ID} %only used in StartPlayer to init a tracker of all players
+		fun{CreateAllPlayer ID} 
 			if(ID>Input.nbPlayer) then nil 
 			else
 				player(id:ID lives:Input.maxDamage possibilities:{ValidPositions {GeneratePositions}} surface:true charge:charge(mine:0 missile:0 sonar:0 drone:0))|{CreateAllPlayer ID+1}
@@ -534,13 +524,10 @@ in
 			of nil then nil
 			%dead player
 			[] null|Next then PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
-			%dead player
-			[] player(null)|Next then
-					PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
 			[] player(id:null lives:_ possibilities:_ surface:_ charge:_)|Next then
 					PlayersInfo.1|{PlayerModification WantedID Next Fun Args} 
 			[] player(id:ID lives:_ possibilities:_ surface:_ charge:_)|Next then
-				if (ID == WantedID.id) then %todo change in StartPlayer
+				if (ID == WantedID.id) then
 					{Fun Args PlayersInfo.1}|Next
 				else
 					PlayersInfo.1|{PlayerModification WantedID Next Fun Args}
@@ -550,12 +537,11 @@ in
 	end
 
 	% Move broadcasted, try to locate all players based only by elemination of possibilities 
-	% Args: arguments(direction:___)
+	% Args: arguments(direction)
 	fun{SayMove Args Player} NewPossibilities in 
 		NewPossibilities = {ValidPositions {NewPositionList Player.possibilities Args.direction}}
-		%{PrettyPrintMap NewPossibilities}
 		% Return
-		{PlayerChangeVal Player possibilities NewPossibilities} %todo do we set surface to false?
+		{PlayerChangeVal {PlayerChangeVal Player surface false} possibilities NewPossibilities}
 	end
 
 	% Update Player.surface when player has surfaced
@@ -583,38 +569,6 @@ in
 		{PlayerChangeVal Player charge NewCharge}
 	end
 
-	% On missile explosion, edit my info and send message back
-	fun{SayMissileExplodeMyInfo MyInfo Pos ?Message} DamageTaken NewMyInfo in
-		if MyInfo.id == null then
-			Message = null
-			NewMyInfo = MyInfo
-		else
-			% Compute damage taken
-			case {ManhattanDistance MyInfo.path.1 Pos}
-				of 1 then	DamageTaken = 1
-				[] 0 then	DamageTaken = 2
-				else 		DamageTaken = 0
-			end
-			% Send message
-			if DamageTaken == 0 then 
-				Message = null
-				NewMyInfo = MyInfo
-			elseif MyInfo.lives =< DamageTaken then 
-				Message = sayDeath(MyInfo.id)
-				% Change MyInfo.id to null & lives to lives-DamageTaken
-				NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)} id null}
-			elseif MyInfo.lives ==0 then
-				Message = sayDeath(MyInfo.id)
-				NewMyInfo = {MyInfoChangeVal {MyInfoChangeVal MyInfo lives 0} id null}
-			else 
-				Message = sayDamageTaken(MyInfo.id DamageTaken MyInfo.lives-DamageTaken)
-				NewMyInfo = {MyInfoChangeVal MyInfo lives (MyInfo.lives-DamageTaken)}
-			end
-		end
-		% Change MyInfo.lives to lives-DamageTaken
-		NewMyInfo
-	end
-
 	% On missile explosion, edit missile charge status
 	% Args: arguments() [no arguments]
 	fun{SayMissileExplodeMissileStatus Args Player} NewCharge in
@@ -625,8 +579,7 @@ in
 	end
 	
 	% Edit MyInfo on mine explosion
-	%todo either combine SayMineExplodeMyInfo and SayMissileExplodeMyInfo or find something to distinguish
-	fun{SayMineExplodeMyInfo MyInfo Pos Message} DamageTaken NewMyInfo in
+	fun{SayExplosionMyInfo MyInfo Pos Message} DamageTaken NewMyInfo in
 		if MyInfo.id == null then
 			Message = null
 			NewMyInfo = MyInfo
@@ -658,7 +611,6 @@ in
 	end
 	
 	% Passing drone 
-	% todo add the info to our player in PlayersInfo
 	% Args : arguments(drone:Drone id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingDrone Args Player} Drone ID Answer MyInfo NewCharge in
 		% Get info
@@ -676,12 +628,12 @@ in
 	end
 	
 	% Update information about the player possible positions
-	fun{SayAnswerDrone Args Player} %todo error in understanding DID (not used)
+	fun{SayAnswerDrone Args Player}
 		NewPossibilities
-		Drone DID Answer
+		Drone Answer
 		PPoss
 	in
-		arguments(drone:Drone id:DID answer:Answer) = Args
+		arguments(drone:Drone id:_ answer:Answer) = Args
 		PPoss = Player.possibilities
 		% Calculate
 		case Drone 
@@ -699,16 +651,12 @@ in
 	end
 	
 	% Answer with position when other player sends sonar
-	% Answer should be pt(x:<x> y:<y>) where (at least) 1 of the 2 is correct
 	% Args : arguments(id:?ID answer:?Answer myInfo:MyInfo)
 	fun{SayPassingSonar Args Player} ID Answer MyInfo NewCharge in
-		%{System.show sayPassingSonar(Args Player)}
 		% Get info
 		arguments(id:ID answer:Answer myInfo:MyInfo) = Args
 		% Return info
 		ID = MyInfo.id
-		%todo minimize info given by given position with the fewest information
-		%todo update player info with the infomaration that we have given 
 		% choose X or Y and send back information (random)
 		case ({OS.rand} mod 2)
 		of 0 then Answer = pt(x:MyInfo.path.1.x y:(({OS.rand} mod Input.nRow)+1))
@@ -741,7 +689,6 @@ in
 	
 	% Simply removing player from PlayersInfo if he is dead
 	fun{SayDeath ID PlayersInfo}
-		%{System.show iAmDead(id:ID.id)}
 		case PlayersInfo
 		of nil then nil
 		[] player(id:PlayerID lives:_ possibilities:_ surface:_ charge:_)|Next then
@@ -769,7 +716,7 @@ in
 		of nil then skip
 
 		[]initPosition(?ID ?Pos)|T then NewMyInfo in
-			NewMyInfo = {InitPosition ID Pos MyInfo} %MyInfo=myInfo(id:_)
+			NewMyInfo = {InitPosition ID Pos MyInfo}
 			{TreatStream T NewMyInfo PlayersInfo}
 		
 		[]move(?ID ?Pos ?Direction)|T then NewMyInfo in
@@ -811,14 +758,10 @@ in
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayMinePlaced arguments()}}
 		
 		[]sayMissileExplode(ID Position ?Message)|T then
-			% edit MyInfo (lives) and send Message back
-			% edit specific player's info (charge.missile)
-			{TreatStream T {SayMissileExplodeMyInfo MyInfo Position ?Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
-			% edit PlayersInfo's lives will be done with sayDamageTaken
+			{TreatStream T {SayExplosionMyInfo MyInfo Position ?Message} {PlayerModification ID PlayersInfo SayMissileExplodeMissileStatus arguments()}}
 		
-		%todo, reflection: do we add the possible position of the mine, because actually we do not? I don't think we should for the random basic player... for the intelligent, maybe when we have a better idea of where the player is
 		[]sayMineExplode(ID Position ?Message)|T then 
-			{TreatStream T {SayMineExplodeMyInfo MyInfo Position Message} PlayersInfo}
+			{TreatStream T {SayExplosionMyInfo MyInfo Position Message} PlayersInfo}
 		
 		[]sayPassingDrone(Drone ?ID ?Answer)|T then
 			ID = MyInfo.id
@@ -827,13 +770,11 @@ in
 		[]sayAnswerDrone(Drone ID Answer)|T then 
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerDrone arguments(drone:Drone id:ID answer:Answer)}}
 		
-		%todo define strat for infomation that we give, count number that maximize unknown => for intelligent player only
 		[]sayPassingSonar(?ID ?Answer)|T then
 			ID = MyInfo.id
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayPassingSonar arguments(id:ID answer:Answer myInfo:MyInfo)}}
 		
 		[]sayAnswerSonar(ID Answer)|T then
-			%todo problems might occur if answer isn't "pt(x:<x> y:<y>)" but normally it's correct
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayAnswerSonar arguments(position:Answer)}}
 		
 		[]sayDeath(ID)|T then
@@ -841,7 +782,6 @@ in
 			{TreatStream T MyInfo {SayDeath ID PlayersInfo}}
 		
 		[]sayDamageTaken(ID Damage LifeLeft)|T then Temp in
-			%todo modify PlayersInfo with PlayerModification
 			{TreatStream T MyInfo {PlayerModification ID PlayersInfo SayDamageTaken arguments(damage:Damage lifeLeft:LifeLeft)}}
 		
 		[] _|T then
@@ -849,46 +789,3 @@ in
 		end
 	end
 end
-
-
-% todo delete these comments ?
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	%message to be handled
-
-	%initPosition(?ID ?Position)
-	%move(?ID ?Position ?Direction)
-	%dive
-	%chargeItem(?ID ?KindItem)
-	%fireItem(?ID ?KindFire)
-	%fireMine(?ID ?Mine)
-	%isDead(?Answer)
-	%sayMove(ID Direction)
-	%saySurface(ID)
-	%sayCharge(ID KindItem)
-	%sayMinePlaced(ID)
-	%sayMissileExplode(ID Position ?Message)
-	%sayMineExplode(ID Position ?Message)
-	%sayPassingDrone(Drone ?ID ?Answer)
-	%sayAnswerDrone(Drone ID Answer)
-	%sayPassingSonar(?ID ?Answer)
-	%sayAnswerSonar(ID Answer)
-	%sayDeath(ID)
-	%sayDamageTaken(ID Damage LifeLeft)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%EBNF
-%<id> ::= null | id(id:<idNum> color:<color> name:Name)
-	%<idNum> ::= 1 | 2 | ... | Input.nbPlayer
-	%<color> ::= red | blue | green | yellow | white | black | c(<colorNum> <colorNum> <colorNum>)
-		%<colorNum> ::= 0 | 1 | ... | 255
-
-%<position> ::= pt(x:<row> y:<column>)
-	%<row> ::= 1 | 2 | ... | Input.nRow
-	%<column> ::= 1 | 2 | ... | Input.nColumn
-
-%<direction> ::= <carddirection> | surface
-	%<carddirection> ::= east | north | south | west
-
-%<item> ::= null | mine | missile | sonar | drone
-%<fireitem> ::= null | mine(<position>) | missile(<position>) | <drone> | sonar
-	%<drone> ::= drone(row <x>) | drone(column <y>)
-	%<mine> ::= null | <position>
